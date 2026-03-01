@@ -6,6 +6,7 @@ use CodeIgniter\Events\Events;
 use CodeIgniter\HTTP\ResponseInterface;
 use Jengo\Base\Facades\ModelFacade;
 use Jengo\Base\Exceptions\InterruptExecutionException;
+use Jengo\Base\Events\AbstractEvent;
 
 if (!function_exists('model_of')) {
     /**
