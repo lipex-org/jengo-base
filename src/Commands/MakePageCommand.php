@@ -24,7 +24,7 @@ class MakePageCommand extends BaseCommand
      *
      * @var string
      */
-    protected $name = 'make:page';
+    protected $name = 'jengo:make-page';
 
     /**
      * The Command's Description
@@ -38,7 +38,7 @@ class MakePageCommand extends BaseCommand
      *
      * @var string
      */
-    protected $usage = 'make:page [arguments] [options]';
+    protected $usage = 'jengo:make-page [arguments] [options]';
 
     /**
      * The Command's Arguments

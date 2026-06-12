@@ -49,17 +49,23 @@ class ViteInstaller extends AbstractInstaller
             __DIR__ . '/../Publisher/Stubs/Vite'
         );
 
-        $clientDir = 'app';
+        $jsDir = 'resources/js';
+        $cssDir = 'resources/css';
 
         $this->publish(
             __DIR__ . '/../Publisher/Stubs/Client',
-            $clientDir
+            $jsDir
+        );
+
+        $this->publish(
+            __DIR__ . '/../Publisher/Stubs/CSS',
+            $cssDir
         );
 
         if ($withTailwind) {
             $this->publish(
                 __DIR__ . '/../Publisher/Stubs/Tailwind',
-                $clientDir
+                $cssDir
             );
         }
 
@@ -80,16 +86,49 @@ class ViteInstaller extends AbstractInstaller
                 $this->buildPackageManagerInstallCommand($pm, $dependecies)
             );
         }
-        
+
         if ($withTailwind) {
             $this->updateViteConfig();
         }
 
+        $this->injectViteTags();
+
         CLI::write('Vite installed successfully.', 'green');
+    }
+
+    private function injectViteTags(): void
+    {
+        $headerPath = APPPATH . 'Views/layouts/partials/header.layout.partial.php';
+
+        if (!file_exists($headerPath)) {
+            return;
+        }
+
+        $content = file_get_contents($headerPath);
+
+        // Check if already injected
+        if (str_contains($content, 'vite_tags()')) {
+            return;
+        }
+
+        $injection = "\n<?php\nuse function Jengo\Base\\vite_tags;\n?>\n\n<?= vite_tags() ?>\n";
+
+        $this->writeFile($headerPath, $content . $injection);
+
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Injected vite_tags into header partial.', 'dark_gray');
     }
 
     protected function wantsTailwind(): bool
     {
+        $tailwind = CLI::getOption('tailwind');
+        if ($tailwind !== null) {
+            return $tailwind === 'y' || $tailwind === true;
+        }
+
+        if (CLI::getOption('yes')) {
+            return true;
+        }
+
         return CLI::prompt(
             'Include Tailwind CSS?',
             ['y', 'n'],
@@ -99,15 +138,24 @@ class ViteInstaller extends AbstractInstaller
 
     protected function whichPackageMangerToUse(): string
     {
+        $pm = CLI::getOption('pm');
+        if ($pm && in_array($pm, ['pnpm', 'npm', 'yarn'])) {
+            return $pm;
+        }
+
         return CLI::prompt(
             'Which package manager do you want to use?',
-            ['npm', 'pnpm', 'yarn'],
-            "in_list[npm,pnpm,yarn]"
+            ['pnpm', 'npm', 'yarn'],
+            "in_list[pnpm,npm,yarn]"
         );
     }
 
     protected function wantsToInstallDependencies(): bool
     {
+        if (CLI::getOption('yes')) {
+            return true;
+        }
+
         return CLI::prompt(
             'Should we install the dependencies?',
             ['y', 'n'],

@@ -13,11 +13,17 @@ class EnvHandler
 
     public function __construct(string $path)
     {
-        if (!file_exists($path)) {
-            throw new RuntimeException(".env file not found at: {$path}");
-        }
         $this->path = $path;
-        $this->lines = file($path, FILE_IGNORE_NEW_LINES);
+
+        if (!file_exists($path)) {
+            // Attempt to create the file if it doesn't exist
+            if (file_put_contents($path, '') === false) {
+                throw new RuntimeException("Failed to create .env file at: {$path}");
+            }
+        }
+
+        $lines = file($path, FILE_IGNORE_NEW_LINES);
+        $this->lines = $lines !== false ? $lines : [];
     }
 
     /**

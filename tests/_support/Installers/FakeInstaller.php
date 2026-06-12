@@ -24,6 +24,10 @@ final class FakeInstaller extends AbstractInstaller
     {
         return 'Fake';
     }
+    public static function reasonForSkipping(): string
+    {
+        return 'Fake skip';
+    }
     public function shouldRun(): bool
     {
         return true;

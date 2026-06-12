@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace {namespace};
 
 use {model_namespace}\{model};
-use App\Contracts\RepositoryInterface;
+use Jengo\Base\Contracts\RepositoryInterface;
 
-final class {repo_name} implements RepositoryInterface
+final class {class} implements RepositoryInterface
 {
     private {model} $model;
 

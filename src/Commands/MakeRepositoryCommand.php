@@ -22,7 +22,7 @@ class MakeRepositoryCommand extends BaseCommand
      *
      * @var string
      */
-    protected $name = 'make:repo';
+    protected $name = 'jengo:make-repo';
 
     /**
      * The Command's Description
@@ -36,7 +36,7 @@ class MakeRepositoryCommand extends BaseCommand
      *
      * @var string
      */
-    protected $usage = 'make:repo [arguments] [options]';
+    protected $usage = 'jengo:make-repo [arguments] [options]';
 
     /**
      * The Command's Arguments

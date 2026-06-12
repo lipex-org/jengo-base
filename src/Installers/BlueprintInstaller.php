@@ -6,21 +6,21 @@ use CodeIgniter\CLI\CLI;
 use CodeIgniter\Test\Mock\MockInputOutput;
 use Jengo\Base\Installers\Contracts\AbstractInstaller;
 
-class PageSystemInstaller extends AbstractInstaller
+class BlueprintInstaller extends AbstractInstaller
 {
     public static function name(): string
     {
-        return 'page_system';
+        return 'blueprint';
     }
 
     public static function description(): string
     {
-        return 'Sets up the Page System (Layouts, Partials, Home Page)';
+        return 'Sets up the core UI architecture (Layouts, Partials, Home Page)';
     }
 
     public static function reasonForSkipping(): string
     {
-        return 'Page system already set up.';
+        return 'Blueprint has already been established.';
     }
 
     public function shouldRun(): bool
@@ -32,7 +32,7 @@ class PageSystemInstaller extends AbstractInstaller
     {
         $this->addRun();
 
-        // 1. setup the page system
+        // 1. setup the blueprint
         //  a. create partials
         $this->createPartials();
 
@@ -50,7 +50,7 @@ class PageSystemInstaller extends AbstractInstaller
             $this->editHomeController();
         }
 
-        CLI::write('Page System installed successfully.', 'green');
+        CLI::write('Blueprint installed successfully.', 'green');
     }
 
     private function createPartials(): void
@@ -146,6 +146,10 @@ PHP;
 
     private function wantsToUpdateHomeController(): bool
     {
+        if (CLI::getOption('yes')) {
+            return true;
+        }
+
         return CLI::prompt('Do you want to update the Home Controller?', ['y', 'n'], 'in_list[y,n]') === 'y';
     }
 }

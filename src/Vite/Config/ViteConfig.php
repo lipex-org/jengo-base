@@ -14,7 +14,8 @@ class ViteConfig extends BaseConfig
     public array $entrypoints = [];
 
     public array $searchPaths = [
-        APPPATH
+        APPPATH,
+        ROOTPATH . 'resources',
     ];
 
     public function toArray(): array

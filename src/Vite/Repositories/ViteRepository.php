@@ -70,6 +70,7 @@ class ViteRepository
             APPPATH,
             APPPATH . 'Client',
             ROOTPATH . 'client',
+            ROOTPATH . 'resources',
             ...$this->config->searchPaths,
         ]);
     }

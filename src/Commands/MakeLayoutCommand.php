@@ -25,7 +25,7 @@ class MakeLayoutCommand extends BaseCommand
      *
      * @var string
      */
-    protected $name = 'make:layout';
+    protected $name = 'jengo:make-layout';
 
     /**
      * The Command's Description
@@ -39,7 +39,7 @@ class MakeLayoutCommand extends BaseCommand
      *
      * @var string
      */
-    protected $usage = 'make:layout [arguments] [options]';
+    protected $usage = 'jengo:make-layout [arguments] [options]';
 
     /**
      * The Command's Arguments

@@ -4,7 +4,6 @@ namespace Jengo\Base\Commands;
 
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Test\Mock\MockInputOutput;
 
 class SetupCommand extends BaseCommand
 {
@@ -27,98 +26,107 @@ class SetupCommand extends BaseCommand
      *
      * @var string
      */
-    protected $description = 'Sets up the Jengo environment in your app';
+    protected $description = 'Jengo System Integration Hub - Connect external ecosystems.';
 
     /**
      * The Command's Usage
      *
      * @var string
      */
-    protected $usage = 'jengo:setup [arguments] [options]';
+    protected $usage = 'jengo:setup [name]';
 
     /**
      * The Command's Arguments
      *
      * @var array
      */
-    protected $arguments = [];
+    protected $arguments = [
+        'name' => 'Optional: The name of a specific setup to run (e.g., auth, inertia)'
+    ];
 
     /**
      * The Command's Options
      *
      * @var array
      */
-    protected $options = [];
-    /**
-     * Creates a new token class file.
-     *
-     * @param array $params
-     */
+    protected $options = [
+        '--framework' => 'The framework to use (vue, react, svelte)',
+        '--kit' => 'The starter kit to use',
+        '--client-dir' => 'The directory for client files',
+        '--pm' => 'The package manager to use (pnpm, npm, yarn)',
+        '--tailwind' => 'Include Tailwind CSS (y/n)',
+        '--yes' => 'Answer yes to all prompts',
+    ];
+
     public function run(array $params)
     {
-        // inform of destructive nature of the command
+        $name = $params[0] ?? CLI::getSegment(2);
 
-        $options = ['y', 'n'];
-
-        $ans = CLI::prompt(
-            'This is a destructive command, do you wish to continue?',
-            $options,
-            ["in_list[" . implode(',', $options) . "]"]
-        );
-
-        if (!in_array(strtolower($ans), ['y', 'yes'])) {
-            CLI::newLine();
-            CLI::write('Setup terminated successfully!', 'yellow');
+        if ($name) {
+            $setup = \Jengo\Base\Setups\Repositories\SetupRepository::find($name);
+            if (!$setup) {
+                CLI::error("Setup Integration [$name] not found.");
+                return;
+            }
+            $setup->setup();
             return;
         }
 
-        // 2.  add the jengo helper to the autoload file
-        $this->addHelperToAutoload();
-
-        CLI::newLine();
-        CLI::write('Setup completed successfully!', 'green');
+        // Trigger the Setup Hub Wizard
+        $this->renderWizard();
     }
 
-    private function addHelperToAutoload(): void
+    private function renderWizard(): void
     {
-        $path = APPPATH . 'Config/Autoload.php';
-        $content = file_get_contents($path);
-        
-        // Check if helper is already added
-        if (str_contains($content, 'Jengo\Base\Helpers\jengo')) {
-            CLI::write('Jengo helper is already configured.', 'yellow');
+        $setups = \Jengo\Base\Setups\Repositories\SetupRepository::all();
+        $options = [];
+        $setupMap = [];
+
+        CLI::newLine();
+        CLI::write("  " . str_repeat('━', 60), 'dark_gray');
+        CLI::write("    JENGO SYSTEM INTEGRATION HUB", 'light_cyan');
+        CLI::write("    Connect your application to external ecosystems", 'dark_gray');
+        CLI::write("  " . str_repeat('━', 60), 'dark_gray');
+        CLI::newLine();
+
+        foreach ($setups as $index => $setup) {
+            $nameCol = str_pad($setup::name(), 12);
+            $options[$index] = sprintf(
+                "%s  %s  %s",
+                CLI::color($nameCol, 'cyan'),
+                CLI::color('·', 'dark_gray'),
+                $setup::description()
+            );
+            $setupMap[$index] = $setup;
+        }
+
+        if (empty($options)) {
+            CLI::write('    No system integrations found.', 'yellow');
             return;
         }
 
-        // Find the helpers array and add the helper
-        $pattern = '/(public\s+\$helpers\s*=\s*\[)(.*?)(\];)/s';
-        
-        if (preg_match($pattern, $content, $matches)) {
-            // Check if array is empty or has items to format correctly
-            $currentHelpers = trim($matches[2]);
-            $newHelper = "'Jengo\\\Base\\\Helpers\\\jengo'";
-            
-            if (empty($currentHelpers)) {
-                $replacement = "public \$helpers = [\n        $newHelper,\n    ];";
-            } else {
-                // Remove trailing comma if present to avoid syntax error when appending, though PHP allows trailing commas.
-                // Safest is to just prepend or append. 
-                // Let's prepend to be safe ensuring it's in the list.
-                $replacement = "public \$helpers = [\n        $newHelper,\n" . $matches[2] . "];";
-            }
-            
-            // Actually, simpler regex replacement might be better to just Insert after opening bracket
-            $content = preg_replace(
-                '/(public\s+\$helpers\s*=\s*\[)/',
-                "$1\n        'Jengo\\\Base\\\Helpers\\\jengo',",
-                $content,
-                1
-            );
-            
-            file_put_contents($path, $content);
-            CLI::write('Jengo helper added to Autoload config.', 'green');
-        } else {
-            CLI::error('Could not automatically add Jengo helper to Autoload.php. Please add it manually.');
+        $selections = CLI::promptByMultipleKeys(CLI::color('  Select integrations to establish (ID)', 'light_cyan'), $options);
+
+        if (empty($selections)) {
+            CLI::newLine();
+            CLI::write('  No selections made. Exiting.', 'light_gray');
+            return;
         }
+
+        CLI::newLine();
+        CLI::write("  " . str_repeat('┈', 60), 'dark_gray');
+        CLI::newLine();
+
+        $reverseMap = array_flip($options);
+
+        foreach ($selections as $selection) {
+            $index = $reverseMap[$selection];
+            $setup = $setupMap[$index];
+            $setup->setup();
+            CLI::newLine();
+        }
+
+        CLI::write("  " . CLI::color('All selected integrations have been processed.', 'light_cyan'));
+        CLI::newLine();
     }
 }

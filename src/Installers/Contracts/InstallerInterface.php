@@ -12,6 +12,8 @@ interface InstallerInterface
     
     public static function reasonForSkipping(): string;
 
+    public static function dependencies(): array;
+
     public function install(): void;
 
     public function shouldRun(): bool;

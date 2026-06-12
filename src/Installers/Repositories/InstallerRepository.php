@@ -14,17 +14,30 @@ class InstallerRepository
     /** @return InstallerInterface[] */
     public static function all(): array
     {
-        $config = config(JengoBase::class);
-
+        $locator = service('locator');
+        $files = $locator->listFiles('Installers/');
+        
         $installers = [];
+        $classes = [];
 
-        foreach ($config->installers as $class) {
-            if (!is_subclass_of($class, InstallerInterface::class)) {
-                throw new RuntimeException(
-                    "{$class} must implement InstallerInterface"
-                );
+        foreach ($files as $file) {
+            $className = $locator->getClassname($file);
+
+            if ($className && class_exists($className) && is_subclass_of($className, InstallerInterface::class)) {
+                $reflection = new \ReflectionClass($className);
+                if (!$reflection->isAbstract()) {
+                    $classes[] = $className;
+                }
             }
+        }
 
+        // Merge with config for backward compatibility and explicit control
+        $config = config(JengoBase::class);
+        if (isset($config->installers)) {
+            $classes = array_unique(array_merge($classes, $config->installers));
+        }
+
+        foreach ($classes as $class) {
             $installers[] = new $class();
         }
 

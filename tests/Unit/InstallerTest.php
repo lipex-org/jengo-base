@@ -50,6 +50,41 @@ final class InstallerTest extends CIUnitTestCase
         );
     }
 
+    public function testEnvCreatesFileIfMissing()
+    {
+        $envPath = ROOTPATH . '.env';
+        if (file_exists($envPath)) {
+            unlink($envPath);
+        }
+
+        $installer = new FakeInstaller();
+        $installer->install();
+
+        $this->assertFileExists($envPath);
+        $this->assertStringContainsString('FOO=baz', file_get_contents($envPath));
+    }
+
+    public function testEnvCopiesTemplateIfMissing()
+    {
+        $envPath = ROOTPATH . '.env';
+        $templatePath = ROOTPATH . 'env';
+
+        if (file_exists($envPath)) {
+            unlink($envPath);
+        }
+        file_put_contents($templatePath, "TEMPLATE=true\n");
+
+        $installer = new FakeInstaller();
+        $installer->install();
+
+        $this->assertFileExists($envPath);
+        $content = file_get_contents($envPath);
+        $this->assertStringContainsString('TEMPLATE=true', $content);
+        $this->assertStringContainsString('FOO=baz', $content);
+
+        unlink($templatePath);
+    }
+
     public function testInstallerIsMarkedInstalled()
     {
         $path = TESTPATH . 'installers.php';

@@ -12,8 +12,8 @@ use Jengo\Base\Vite\ViteEntryPointScanner;
 
 class ViteConfigCommand extends BaseCommand
 {
-    protected $group       = 'Jengo';
-    protected $name        = 'vite:config';
+    protected $group = 'Jengo';
+    protected $name = 'jengo:vite-config';
     protected $description = 'Returns the Vite entrypoint configuration as JSON.';
 
     public function run(array $params)
