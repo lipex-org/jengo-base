@@ -48,7 +48,7 @@ class DevInstaller extends AbstractInstaller
         // 2. Install concurrently
         $pm = $this->detectPackageManager();
         CLI::write("  " . CLI::color('●', 'cyan') . " Installing concurrently via {$pm}...", 'dark_gray');
-        
+
         $installCmd = match ($pm) {
             'pnpm' => 'pnpm add -D concurrently',
             'yarn' => 'yarn add -D concurrently',
@@ -59,7 +59,7 @@ class DevInstaller extends AbstractInstaller
 
         // 3. Update composer.json
         CLI::write('  ' . CLI::color('●', 'cyan') . ' Updating composer.json with dev script and high timeout...', 'dark_gray');
-        
+
         $composerPath = ROOTPATH . 'composer.json';
         $composer = json_decode(file_get_contents($composerPath), true);
 
@@ -72,8 +72,8 @@ class DevInstaller extends AbstractInstaller
         }
 
         // Add the dev script
-        $composer['scripts']['dev'] = 'concurrently "php spark serve" "npm run dev" --kill-others';
-        
+        $composer['scripts']['dev'] = 'npx concurrently "php spark serve" "npm run dev" --kill-others';
+
         // Set a very high process timeout (0 = infinite)
         $composer['config']['process-timeout'] = 0;
 
