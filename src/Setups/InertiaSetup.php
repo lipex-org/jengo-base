@@ -33,6 +33,7 @@ class InertiaSetup extends AbstractSetup
 
         $framework = CLI::getOption('framework');
         $yes = CLI::getOption('yes') ? '--yes' : '';
+        $pm = CLI::getOption('pm') ?? 'npm';
 
         CLI::newLine();
         CLI::write("  " . CLI::color('●', 'light_cyan') . " Triggering Inertia Installer...");
@@ -42,8 +43,13 @@ class InertiaSetup extends AbstractSetup
         if ($framework) {
             $args[] = "--framework={$framework}";
         }
+
         if ($yes) {
             $args[] = $yes;
+        }
+
+        if ($pm) {
+            $args[] = "--pm={$pm}";
         }
 
         $this->call('jengo:install', $args);

@@ -139,6 +139,7 @@ class ViteInstaller extends AbstractInstaller
     protected function whichPackageMangerToUse(): string
     {
         $pm = CLI::getOption('pm');
+
         if ($pm && in_array($pm, ['pnpm', 'npm', 'yarn'])) {
             return $pm;
         }
