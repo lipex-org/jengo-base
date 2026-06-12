@@ -41,7 +41,7 @@ abstract class AbstractSetup implements SetupInterface
         CLI::newLine();
 
         $output = [];
-        exec("composer require {$package} -W --no-interaction 2>&1", $output, $returnVar);
+        exec("composer require {$package}", $output, $returnVar);
 
         if ($returnVar !== 0) {
             CLI::newLine();
