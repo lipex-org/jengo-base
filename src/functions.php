@@ -21,7 +21,33 @@ function vite_tags()
 
     $tags = $vite->createTags(...$entrypoints);
 
-    return $tags->preload . PHP_EOL
+    $output = $tags->preload . PHP_EOL
         . $tags->css . PHP_EOL
         . $tags->js . PHP_EOL;
+
+    // React Refresh Preamble for Development
+    if (isDevelopment()) {
+        $needsReactRefresh = false;
+        foreach ($entrypoints as $entry) {
+            if (str_ends_with($entry, '.tsx') || str_ends_with($entry, '.jsx')) {
+                $needsReactRefresh = true;
+                break;
+            }
+        }
+
+        if ($needsReactRefresh) {
+            $preamble = <<<HTML
+    <script type="module">
+        import RefreshRuntime from '{$vite_server_url}@react-refresh'
+        RefreshRuntime.injectIntoGlobalHook(window)
+        window.$RefreshReg$ = () => {}
+        window.$RefreshSig$ = () => (type) => type
+        window.__vite_plugin_react_preamble_installed__ = true
+    </script>
+HTML;
+            $output = $preamble . PHP_EOL . $output;
+        }
+    }
+
+    return $output;
 }
