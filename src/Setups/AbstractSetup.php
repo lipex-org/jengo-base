@@ -40,11 +40,15 @@ abstract class AbstractSetup implements SetupInterface
         CLI::write("  " . CLI::color('●', 'light_cyan') . " Package " . CLI::color($package, 'cyan') . " is missing. Installing...");
         CLI::newLine();
 
-        passthru("composer require {$package}", $returnVar);
+        $output = [];
+        exec("composer require {$package} -W --no-interaction 2>&1", $output, $returnVar);
 
         if ($returnVar !== 0) {
             CLI::newLine();
             CLI::error("  Failed to install {$package}.");
+            foreach ($output as $line) {
+                CLI::error("  " . $line);
+            }
             return false;
         }
 

@@ -134,12 +134,23 @@ class AuthSetup extends AbstractSetup
         $routesPath = APPPATH . 'Config/Routes.php';
         if (file_exists($routesPath)) {
             $content = file_get_contents($routesPath);
-            $inertiaRoutes = "\n// Jengo Inertia Auth Routes\n\$routes->get('login', '\App\Controllers\Auth\AuthController::loginView');\n\$routes->get('register', '\App\Controllers\Auth\AuthController::registerView');\n";
+            
+            // Exclude default Shield login and register routes
+            if (str_contains($content, "service('auth')->routes(\$routes);")) {
+                $content = str_replace(
+                    "service('auth')->routes(\$routes);",
+                    "service('auth')->routes(\$routes, ['except' => ['login', 'register']]);",
+                    $content
+                );
+            }
+
+            $inertiaRoutes = "\n// Jengo Inertia Auth Routes\n\$routes->get('login', '\App\Controllers\Auth\AuthController::loginView', ['as' => 'login']);\n\$routes->get('register', '\App\Controllers\Auth\AuthController::registerView', ['as' => 'register']);\n";
             
             if (!str_contains($content, "AuthController::loginView")) {
                 $content .= $inertiaRoutes;
-                file_put_contents($routesPath, $content);
             }
+
+            file_put_contents($routesPath, $content);
         }
 
         CLI::write("  " . CLI::color('✔', 'green') . " Inertia Auth configuration completed.");
