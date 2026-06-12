@@ -32,8 +32,15 @@ class AuthSetup extends AbstractSetup
         }
 
         $this->runShieldSetup();
-        $this->publishBlueprintAuth();
-        $this->configureShield();
+        
+        $isInertiaInstalled = file_exists(ROOTPATH . 'vendor/jengo/inertia/composer.json') || class_exists('\Jengo\Inertia\Inertia');
+
+        if ($isInertiaInstalled) {
+            $this->publishInertiaAuth();
+        } else {
+            $this->publishBlueprintAuth();
+            $this->configureShield();
+        }
     }
 
     private function runShieldSetup(): void
@@ -41,6 +48,32 @@ class AuthSetup extends AbstractSetup
         CLI::write("  " . CLI::color('●', 'light_cyan') . " Running Shield Setup...");
         $this->call('shield:setup');
         CLI::write("  " . CLI::color('✔', 'green') . " Shield setup completed.");
+    }
+
+    private function publishInertiaAuth(): void
+    {
+        CLI::write("  " . CLI::color('●', 'light_cyan') . " Configuring Shield for Inertia SPA...");
+
+        // Publish Auth Controller
+        $stubsDir = __DIR__ . '/../Publisher/Stubs/Auth/';
+        if (!is_dir(APPPATH . 'Controllers/Auth')) {
+            mkdir(APPPATH . 'Controllers/Auth', 0777, true);
+        }
+        copy($stubsDir . 'Controllers/AuthController.php', APPPATH . 'Controllers/Auth/AuthController.php');
+
+        // Update Routes
+        $routesPath = APPPATH . 'Config/Routes.php';
+        if (file_exists($routesPath)) {
+            $content = file_get_contents($routesPath);
+            $inertiaRoutes = "\n// Jengo Inertia Auth Routes\n\$routes->get('login', '\App\Controllers\Auth\AuthController::loginView');\n\$routes->get('register', '\App\Controllers\Auth\AuthController::registerView');\n";
+            
+            if (!str_contains($content, "AuthController::loginView")) {
+                $content .= $inertiaRoutes;
+                file_put_contents($routesPath, $content);
+            }
+        }
+
+        CLI::write("  " . CLI::color('✔', 'green') . " Inertia Auth configuration completed.");
     }
 
     private function publishBlueprintAuth(): void

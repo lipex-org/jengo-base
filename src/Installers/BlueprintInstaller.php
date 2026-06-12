@@ -32,124 +32,44 @@ class BlueprintInstaller extends AbstractInstaller
     {
         $this->addRun();
 
-        // 1. setup the blueprint
-        //  a. create partials
-        $this->createPartials();
+        $stubsDir = __DIR__ . '/../Publisher/Stubs/Blueprint/';
 
-        //  b. create base layout
-        $this->createBaseLayout();
+        // 1. Publish Layouts & Partials
+        $this->publish($stubsDir . 'Views/layouts', 'app/Views/layouts');
 
-        //  c. create app layout
-        $this->createAppLayout();
+        // 2. Publish Pages
+        $this->publish($stubsDir . 'Views/pages', 'app/Views/pages');
 
-        // d. create the home page
-        $this->createHomePage();
+        // 3. Publish Controllers
+        $this->publish($stubsDir . 'Controllers', 'app/Controllers');
 
-        // e. replace home controller
-        if ($this->wantsToUpdateHomeController()) {
-            $this->editHomeController();
+        // 4. Update Routes
+        $this->updateRoutes();
+
+        // Remove the default welcome_message.php if it exists
+        $welcomePagePath = APPPATH . "Views/welcome_message.php";
+        if (file_exists($welcomePagePath)) {
+            unlink($welcomePagePath);
         }
 
         CLI::write('Blueprint installed successfully.', 'green');
     }
 
-    private function createPartials(): void
+    private function updateRoutes(): void
     {
-        $dir = APPPATH . "Views/layouts/partials/";
-        $files = [
-            'header.layout.partial',
-            'footer.layout.partial'
-        ];
-
-        $content = [
-            'header.layout.partial' => '<!-- Header file - Use to add any tags in the head tag -->',
-            'footer.layout.partial' => '<!-- Footer file - Use to add any links to be placed at the end of the body tag  -->'
-        ];
-
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
+        $routesPath = APPPATH . 'Config/Routes.php';
+        if (!file_exists($routesPath)) {
+            return;
         }
 
-        foreach ($files as $file) {
-            $filename = "$dir{$file}.php";
+        $content = file_get_contents($routesPath);
 
-            if (!file_exists($filename)) {
-                file_put_contents($filename, $content[$file]);
-            }
+        // Define Dashboard Route (with session filter)
+        $dashboardRoute = "\n// Jengo Dashboard Route\n\$routes->get('dashboard', 'Dashboard::index', ['filter' => 'session']);\n";
+
+        if (!str_contains($content, "get('dashboard'")) {
+            $content .= $dashboardRoute;
+            $this->writeFile($routesPath, $content);
         }
-    }
-
-    private function createBaseLayout(): void
-    {
-        $io = new MockInputOutput();
-
-        CLI::setInputOutput($io);
-
-        command('make:layout base --base');
-
-        CLI::resetInputOutput();
-    }
-
-    private function createAppLayout(): void
-    {
-        $io = new MockInputOutput();
-
-        CLI::setInputOutput($io);
-
-        command('make:layout app');
-
-        CLI::resetInputOutput();
-    }
-
-    private function createHomePage(): void
-    {
-        $io = new MockInputOutput();
-
-        CLI::setInputOutput($io);
-
-        command('make:page home');
-
-        CLI::resetInputOutput();
-    }
-
-    private function editHomeController(): void
-    {
-        $path = APPPATH . "Controllers/Home.php";
-        $welcomePagePath = APPPATH . "Views/welcome_message.php";
-
-        $content = <<<'PHP'
-<?php
-
-namespace App\Controllers;
-
-class Home extends BaseController
-{
-    public function index(): string
-    {
-        return page('home');
-    }
-}
-PHP;
-
-
-        if (file_exists($path)) {
-            unlink($path);
-        }
-
-        if (file_exists($welcomePagePath)) {
-            unlink($welcomePagePath);
-        }
-
-        file_put_contents($path, $content);
-        CLI::write("Home Controller updated.", 'green');
-    }
-
-    private function wantsToUpdateHomeController(): bool
-    {
-        if (CLI::getOption('yes')) {
-            return true;
-        }
-
-        return CLI::prompt('Do you want to update the Home Controller?', ['y', 'n'], 'in_list[y,n]') === 'y';
     }
 }
