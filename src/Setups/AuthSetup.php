@@ -45,9 +45,78 @@ class AuthSetup extends AbstractSetup
 
     private function runShieldSetup(): void
     {
-        CLI::write("  " . CLI::color('●', 'light_cyan') . " Running Shield Setup...");
-        $this->call('shield:setup');
+        CLI::write("  " . CLI::color('●', 'light_cyan') . " Running Manual Shield Setup...");
+
+        $sourceDir = ROOTPATH . 'vendor/codeigniter4/shield/src/Config/';
+        $destDir = APPPATH . 'Config/';
+
+        // 1. Publish Configs
+        $this->copyAndReplace($sourceDir . 'Auth.php', $destDir . 'Auth.php', [
+            'namespace CodeIgniter\Shield\Config'  => 'namespace Config',
+            'use CodeIgniter\Config\BaseConfig;'   => 'use CodeIgniter\Shield\Config\Auth as ShieldAuth;',
+            'extends BaseConfig'                   => 'extends ShieldAuth',
+        ]);
+
+        $this->copyAndReplace($sourceDir . 'AuthGroups.php', $destDir . 'AuthGroups.php', [
+            'namespace CodeIgniter\Shield\Config'  => 'namespace Config',
+            'use CodeIgniter\Config\BaseConfig;'   => 'use CodeIgniter\Shield\Config\AuthGroups as ShieldAuthGroups;',
+            'extends BaseConfig'                   => 'extends ShieldAuthGroups',
+        ]);
+
+        $this->copyAndReplace($sourceDir . 'AuthToken.php', $destDir . 'AuthToken.php', [
+            'namespace CodeIgniter\Shield\Config;' => "namespace Config;\n\nuse CodeIgniter\Shield\Config\AuthToken as ShieldAuthToken;",
+            'extends BaseAuthToken'                => 'extends ShieldAuthToken',
+        ]);
+
+        // 2. Autoload Helpers
+        $autoloadPath = $destDir . 'Autoload.php';
+        if (file_exists($autoloadPath)) {
+            $content = file_get_contents($autoloadPath);
+            $pattern = '/^    public \$helpers = \[(.*?)\];/msu';
+            if (preg_match($pattern, $content, $matches)) {
+                $helpers = array_map('trim', explode(',', str_replace(["'", '"'], '', $matches[1])));
+                $helpers = array_filter($helpers);
+                $newHelpers = array_unique(array_merge($helpers, ['auth', 'setting']));
+                $replace = '    public $helpers = [\'' . implode("', '", $newHelpers) . '\'];';
+                $content = preg_replace($pattern, $replace, $content);
+                file_put_contents($autoloadPath, $content);
+            }
+        }
+
+        // 3. Setup Routes
+        $routesPath = $destDir . 'Routes.php';
+        if (file_exists($routesPath)) {
+            $content = file_get_contents($routesPath);
+            if (!str_contains($content, "service('auth')->routes(\$routes);")) {
+                $content .= "\nservice('auth')->routes(\$routes);\n";
+                file_put_contents($routesPath, $content);
+            }
+        }
+
+        // 4. Security CSRF
+        $securityPath = $destDir . 'Security.php';
+        if (file_exists($securityPath)) {
+            $content = file_get_contents($securityPath);
+            $content = str_replace("\$csrfProtection = 'cookie';", "\$csrfProtection = 'session';", $content);
+            file_put_contents($securityPath, $content);
+        }
+
         CLI::write("  " . CLI::color('✔', 'green') . " Shield setup completed.");
+    }
+
+    private function copyAndReplace(string $source, string $dest, array $replacements): void
+    {
+        if (!file_exists($source)) return;
+        if (file_exists($dest)) return; // Don't overwrite if it exists
+        
+        $content = file_get_contents($source);
+        $content = str_replace(array_keys($replacements), array_values($replacements), $content);
+        
+        if (!is_dir(dirname($dest))) {
+            mkdir(dirname($dest), 0777, true);
+        }
+        
+        file_put_contents($dest, $content);
     }
 
     private function publishInertiaAuth(): void
