@@ -41,15 +41,16 @@ class TagGenerator
     public function makeReactRefreshPreamble(string $devServerUrl): string
     {
         $url = rtrim($devServerUrl, '/') . '/@react-refresh';
-        return <<<HTML
-            <script type="module">
-                import RefreshRuntime from '{$url}'
-                RefreshRuntime.injectIntoGlobalHook(window)
-                window.\$RefreshReg\$ = () => {}
-                window.\$RefreshSig\$ = () => (type) => type
-                window.__vite_plugin_react_preamble_installed__ = true
-            </script>
-        HTML;
+
+        return sprintf(
+            '<script type="module">
+                import {injectIntoGlobalHook} from "%s"
+                injectIntoGlobalHook(window)
+                window.$RefreshReg$ = () => {}
+                window.$RefreshSig$ = () => (type) => type
+            </script>',
+            $url
+        );
     }
 
     /**

@@ -35,6 +35,22 @@ class ViteService
     }
 
     /**
+     * Returns the version hash of the manifest file.
+     */
+    public function getVersion(string $manifestPath): ?string
+    {
+        if (ENVIRONMENT === 'development') {
+            return null;
+        }
+
+        if (file_exists($manifestPath)) {
+            return md5_file($manifestPath);
+        }
+
+        return null;
+    }
+
+    /**
      * Generates tags for development mode.
      */
     protected function generateDevelopmentTags(array $entrypoints, string $devServerUrl): string

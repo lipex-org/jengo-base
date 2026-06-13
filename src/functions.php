@@ -22,3 +22,8 @@ function vite_tags()
         'dist/'
     );
 }
+
+function vite_version()
+{
+    return (new ViteService())->getVersion(FCPATH . 'dist/.vite/manifest.json');
+}
