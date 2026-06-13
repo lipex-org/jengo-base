@@ -38,10 +38,10 @@ class MaizzleInstaller extends AbstractInstaller
     {
         $this->addRun();
         
-        $pm = $this->detectPackageManager();
+        $pm = $this->node();
         $dependencies = $this->getDependencies();
 
-        CLI::write("Using package manager: {$pm}", 'cyan');
+        CLI::write("Using package manager: {$pm->getManager()}", 'cyan');
 
         // Publish Maizzle stubs
         $this->publish(
@@ -49,10 +49,8 @@ class MaizzleInstaller extends AbstractInstaller
             'resources/js'
         );
 
-        // Install dependencies
-        $this->run(
-            $this->buildPackageManagerInstallCommand($pm, $dependencies)
-        );
+        // Install dependencies (all dev)
+        $this->run($pm->getAddCommand($dependencies, true));
 
         $this->updateViteConfig();
 
@@ -66,15 +64,6 @@ class MaizzleInstaller extends AbstractInstaller
             'vue',
             '@vitejs/plugin-vue',
         ];
-    }
-
-    private function buildPackageManagerInstallCommand(string $pm, array $dependencies): string
-    {
-        $deps = implode(' ', $dependencies);
-        $baseCommand = $this->packageMangerInstallCommand($pm);
-
-        // All these are dev dependencies for Maizzle/Vite
-        return "{$baseCommand} -D {$deps}";
     }
 
     private function updateViteConfig(): void

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Installers\Traits;
+namespace Jengo\Base\Traits;
 
 trait HasClientAssets
 {
@@ -30,7 +30,7 @@ trait HasClientAssets
     protected function addJSFile(string $filename, string $content): void
     {
         $this->ensureClientDirectory();
-        
+
         $path = ROOTPATH . 'resources/js/' . ltrim($filename, '/');
         $this->ensureDirectory(dirname($path));
 

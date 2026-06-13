@@ -32,14 +32,13 @@ class ViteInstaller extends AbstractInstaller
     public function install(): void
     {
         $this->addRun();
-        $dependecies = $this->getDependencies();
+        
+        $canInstallDependencies = $this->wantsToInstallDependencies();
+        $pm = null;
 
-        $canInstallDependecies = $this->wantsToInstallDependencies();
-
-        if ($canInstallDependecies) {
-            $pm = $this->whichPackageMangerToUse();
-
-            CLI::write("Using package manager: {$pm}", 'cyan');
+        if ($canInstallDependencies) {
+            $pm = $this->selectNodeManager();
+            CLI::write("Using package manager: {$pm->getManager()}", 'cyan');
         }
 
         $withTailwind = $this->wantsTailwind();
@@ -76,15 +75,17 @@ class ViteInstaller extends AbstractInstaller
             ->set('VITE_DEV_SERVER', 'http://localhost:5173')
             ->save();
 
-        if (!$withTailwind) {
-            unset($dependecies['tailwind'], $dependecies['tailwind_vite_plugin']);
-        }
-
         // Install deps
-        if ($canInstallDependecies) {
-            $this->run(
-                $this->buildPackageManagerInstallCommand($pm, $dependecies)
-            );
+        if ($canInstallDependencies && $pm) {
+            $dependencies = $this->getDependencies($withTailwind);
+            $devDependencies = $this->getDevDependencies($withTailwind);
+
+            if (!empty($dependencies)) {
+                $this->run($pm->getAddCommand($dependencies));
+            }
+            if (!empty($devDependencies)) {
+                $this->run($pm->getAddCommand($devDependencies, true));
+            }
         }
 
         if ($withTailwind) {
@@ -136,79 +137,26 @@ class ViteInstaller extends AbstractInstaller
         ) === 'y';
     }
 
-    protected function whichPackageMangerToUse(): string
-    {
-        $pm = CLI::getOption('pm');
-
-        if ($pm && in_array($pm, ['pnpm', 'npm', 'yarn'])) {
-            return $pm;
-        }
-
-        return CLI::prompt(
-            'Which package manager do you want to use?',
-            ['pnpm', 'npm', 'yarn'],
-            "in_list[pnpm,npm,yarn]"
-        );
-    }
-
-    protected function wantsToInstallDependencies(): bool
-    {
-        if (CLI::getOption('yes')) {
-            return true;
-        }
-
-        return CLI::prompt(
-            'Should we install the dependencies?',
-            ['y', 'n'],
-            'in_list[y,n]'
-        ) === 'y';
-    }
-
-    private function getDependencies(): array
-    {
-        return [
-            'vite' => 'vite',
-            'tailwind' => 'tailwindcss',
-            'tailwind_vite_plugin' => '@tailwindcss/vite',
-            'jengo_vite_plugin' => '@jengo/vite',
-        ];
-    }
-
-    private function devDependencies(): array
-    {
-        return [
-            'vite',
-            'tailwind',
-            'tailwind_vite_plugin',
-            'jengo_vite_plugin'
-        ];
-    }
-
-    /**
-     * Build the package manager install command
-     * @param string $pm
-     * @param array<string, string> $dependencies
-     * @return string
-     */
-    private function buildPackageManagerInstallCommand(string $pm, array $dependencies): string
+    private function getDependencies(bool $withTailwind = true): array
     {
         $deps = [];
-        $devDeps = $this->devDependencies();
+        // Production dependencies if any
+        return $deps;
+    }
 
-        foreach ($dependencies as $key => $name) {
-            // check isDev too
-            if (in_array($key, $devDeps)) {
-                $deps[] = "-D {$name}";
-            } else {
-                $deps[] = $name;
-            }
+    private function getDevDependencies(bool $withTailwind = true): array
+    {
+        $deps = [
+            'vite',
+            '@jengo/vite',
+        ];
+
+        if ($withTailwind) {
+            $deps[] = 'tailwindcss';
+            $deps[] = '@tailwindcss/vite';
         }
 
-        $deps = implode(' ', $deps);
-
-        $baseCommand = $this->packageMangerInstallCommand($pm);
-
-        return "{$baseCommand} {$deps}";
+        return $deps;
     }
 
     private function updateViteConfig(): void

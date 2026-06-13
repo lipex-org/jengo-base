@@ -9,7 +9,8 @@
             "Jengo\\Base\\Vite\\": "src/Vite/"
         },
         "files": [
-            "src/functions.php"
+            "src/functions.php",
+            "src/Support/functions.php"
         ]
     },
     "autoload-dev": {

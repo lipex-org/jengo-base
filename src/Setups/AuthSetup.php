@@ -27,184 +27,115 @@ class AuthSetup extends AbstractSetup
     {
         $this->renderHeader(self::title(), self::description());
 
+        // 1. Ensure Shield is installed
         if (!$this->ensurePackage('codeigniter4/shield')) {
             return;
         }
 
-        $this->runShieldSetup();
-
-        $isInertiaInstalled = file_exists(ROOTPATH . 'vendor/jengo/inertia/composer.json') || class_exists('\Jengo\Inertia\Inertia');
-
-        if ($isInertiaInstalled) {
-            $this->publishInertiaAuth();
-        } else {
-            $this->publishBlueprintAuth();
-            $this->configureShield();
+        // 2. Run Shield Setup if not already done
+        if (!file_exists(APPPATH . 'Config/Auth.php')) {
+            CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Running Shield setup...');
+            $this->call('shield:setup', ['--yes']);
         }
+
+        // 3. Publish Jengo Auth Stubs
+        CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Publishing Jengo Auth components...');
+        
+        // Configs
+        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Config', 'app/Config');
+        
+        // Controllers
+        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Controllers', 'app/Controllers');
+        
+        // Layouts
+        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/layouts', 'app/Views/layouts');
+        
+        // Views
+        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Views', 'app/Views/auth');
+
+        // 4. Update Auth Config
+        $this->updateAuthConfig();
+
+        // 5. Update Routes
+        $this->updateRoutes();
+
+        CLI::newLine();
+        CLI::write('  ' . CLI::color('✔', 'green') . ' Auth suite configured successfully.');
+        CLI::write('  ' . CLI::color('●', 'yellow') . ' Note: Remember to run migrations to set up Shield tables.');
     }
 
-    private function runShieldSetup(): void
+    protected function updateAuthConfig(): void
     {
-        CLI::write("  " . CLI::color('●', 'light_cyan') . " Running Manual Shield Setup...");
-
-        $sourceDir = ROOTPATH . 'vendor/codeigniter4/shield/src/Config/';
-        $destDir = APPPATH . 'Config/';
-
-        // 1. Publish Configs
-        $this->copyAndReplace($sourceDir . 'Auth.php', $destDir . 'Auth.php', [
-            'namespace CodeIgniter\Shield\Config' => 'namespace Config',
-            'use CodeIgniter\Config\BaseConfig;' => 'use CodeIgniter\Shield\Config\Auth as ShieldAuth;',
-            'extends BaseConfig' => 'extends ShieldAuth',
-        ]);
-
-        $this->copyAndReplace($sourceDir . 'AuthGroups.php', $destDir . 'AuthGroups.php', [
-            'namespace CodeIgniter\Shield\Config' => 'namespace Config',
-            'use CodeIgniter\Config\BaseConfig;' => 'use CodeIgniter\Shield\Config\AuthGroups as ShieldAuthGroups;',
-            'extends BaseConfig' => 'extends ShieldAuthGroups',
-        ]);
-
-        $this->copyAndReplace($sourceDir . 'AuthToken.php', $destDir . 'AuthToken.php', [
-            'namespace CodeIgniter\Shield\Config;' => "namespace Config;\n\nuse CodeIgniter\Shield\Config\AuthToken as ShieldAuthToken;",
-            'extends BaseAuthToken' => 'extends ShieldAuthToken',
-        ]);
-
-        // 2. Autoload Helpers
-        $autoloadPath = $destDir . 'Autoload.php';
-        if (file_exists($autoloadPath)) {
-            $content = file_get_contents($autoloadPath);
-            $pattern = '/^    public \$helpers = \[(.*?)\];/msu';
-            if (preg_match($pattern, $content, $matches)) {
-                $helpers = array_map('trim', explode(',', str_replace(["'", '"'], '', $matches[1])));
-                $helpers = array_filter($helpers);
-                $newHelpers = array_unique(array_merge($helpers, ['auth', 'setting']));
-                $replace = '    public $helpers = [\'' . implode("', '", $newHelpers) . '\'];';
-                $content = preg_replace($pattern, $replace, $content);
-                file_put_contents($autoloadPath, $content);
-            }
-        }
-
-        // 3. Setup Routes
-        $routesPath = $destDir . 'Routes.php';
-        if (file_exists($routesPath)) {
-            $content = file_get_contents($routesPath);
-            if (!str_contains($content, "service('auth')->routes(\$routes);")) {
-                $content .= "\nservice('auth')->routes(\$routes);\n";
-                file_put_contents($routesPath, $content);
-            }
-        }
-
-        // 4. Security CSRF
-        $securityPath = $destDir . 'Security.php';
-        if (file_exists($securityPath)) {
-            $content = file_get_contents($securityPath);
-            $content = str_replace("\$csrfProtection = 'cookie';", "\$csrfProtection = 'session';", $content);
-            file_put_contents($securityPath, $content);
-        }
-
-        CLI::write("  " . CLI::color('✔', 'green') . " Shield setup completed.");
-    }
-
-    private function copyAndReplace(string $source, string $dest, array $replacements): void
-    {
-        if (!file_exists($source))
-            return;
-        if (file_exists($dest))
-            return; // Don't overwrite if it exists
-
-        $content = file_get_contents($source);
-        $content = str_replace(array_keys($replacements), array_values($replacements), $content);
-
-        if (!is_dir(dirname($dest))) {
-            mkdir(dirname($dest), 0777, true);
-        }
-
-        file_put_contents($dest, $content);
-    }
-
-    private function publishInertiaAuth(): void
-    {
-        CLI::write("  " . CLI::color('●', 'light_cyan') . " Configuring Shield for Inertia SPA...");
-
-        // Publish Auth Controller
-        $stubsDir = __DIR__ . '/../Publisher/Stubs/Auth/';
-        if (!is_dir(APPPATH . 'Controllers/Auth')) {
-            mkdir(APPPATH . 'Controllers/Auth', 0777, true);
-        }
-        copy($stubsDir . 'Controllers/AuthController.php', APPPATH . 'Controllers/Auth/AuthController.php');
-
-        // Update Routes
-        $routesPath = APPPATH . 'Config/Routes.php';
-        if (file_exists($routesPath)) {
-            $content = file_get_contents($routesPath);
-
-            // Exclude default Shield login and register routes
-            if (str_contains($content, "service('auth')->routes(\$routes);")) {
-                $content = str_replace(
-                    "service('auth')->routes(\$routes);",
-                    "service('auth')->routes(\$routes, ['except' => ['login', 'register']]);",
-                    $content
-                );
-            }
-
-            $inertiaRoutes = "\n// Jengo Inertia Auth Routes\n\$routes->get('login', '\App\Controllers\Auth\AuthController::loginView', ['as' => 'login']);\n\$routes->get('register', '\App\Controllers\Auth\AuthController::registerView', ['as' => 'register']);\n";
-
-            if (!str_contains($content, "AuthController::loginView")) {
-                $content .= $inertiaRoutes;
-            }
-
-            file_put_contents($routesPath, $content);
-        }
-
-        CLI::write("  " . CLI::color('✔', 'green') . " Inertia Auth configuration completed.");
-    }
-
-    private function publishBlueprintAuth(): void
-    {
-        CLI::write("  " . CLI::color('●', 'light_cyan') . " Applying Jengo Blueprint styling to Auth views...");
-
-        $stubsDir = __DIR__ . '/../Publisher/Stubs/Auth/';
-
-        // 1. Publish Layout
-        $layoutDest = APPPATH . 'Views/layouts/auth.layout.php';
-        if (!is_dir(dirname($layoutDest))) {
-            mkdir(dirname($layoutDest), 0777, true);
-        }
-        copy($stubsDir . 'layouts/auth.layout.php', $layoutDest);
-
-        // 2. Publish Views
-        $viewsDest = APPPATH . 'Views/Shield/';
-        if (!is_dir($viewsDest)) {
-            mkdir($viewsDest, 0777, true);
-        }
-
-        copy($stubsDir . 'Views/login.php', $viewsDest . 'login.php');
-        copy($stubsDir . 'Views/register.php', $viewsDest . 'register.php');
-
-        CLI::write("  " . CLI::color('✔', 'green') . " Blueprint Auth views published.");
-    }
-
-    private function configureShield(): void
-    {
-        CLI::write("  " . CLI::color('●', 'light_cyan') . " Configuring Shield to use Jengo views...");
-
-        $path = APPPATH . 'Config/AuthView.php';
+        $path = APPPATH . 'Config/Auth.php';
         if (!file_exists($path)) {
-            CLI::write("  " . CLI::color('○', 'yellow') . " Config/AuthView.php not found. Skipping config update.");
             return;
         }
 
         $content = file_get_contents($path);
 
-        $replacements = [
-            "'login'             => 'CodeIgniter\Shield\Views\login'" => "'login'             => 'Shield\login'",
-            "'register'          => 'CodeIgniter\Shield\Views\register'" => "'register'          => 'Shield\register'",
-        ];
+        // Update Redirects
+        $redirects = "public array \$redirects = [
+        'register'          => 'dashboard',
+        'login'             => 'dashboard',
+        'logout'            => 'login',
+        'force_reset'       => '/',
+        'permission_denied' => '/',
+        'group_denied'      => '/',
+    ];";
 
-        foreach ($replacements as $old => $new) {
-            $content = str_replace($old, $new, $content);
+        $content = preg_replace('/public array \$redirects = \[.*?\];/s', $redirects, $content);
+
+        // Update View mapping to use Jengo views (if not using Inertia)
+        // Note: The Jengo controllers use Inertia::render by default, 
+        // but Shield's internal actions might still look at this config.
+        $views = "public array \$views = [
+        'login'                       => 'App\Views\auth\login',
+        'register'                    => 'App\Views\auth\register',
+        'layout'                      => 'App\Views\layouts\auth.layout',
+        'action_show'                 => 'CodeIgniter\Shield\Views\action_show',
+        'magic-link-login'            => 'CodeIgniter\Shield\Views\magic_link_form',
+        'magic-link-message'          => 'CodeIgniter\Shield\Views\magic_link_message',
+        'magic-link-email'            => 'CodeIgniter\Shield\Views\Email\magic_link_email',
+        'verification-email'          => 'CodeIgniter\Shield\Views\Email\email_activation_email',
+    ];";
+
+        $content = preg_replace('/public array \$views = \[.*?\];/s', $views, $content);
+
+        $this->writeFile($path, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/Auth.php redirects and views.', 'dark_gray');
+    }
+
+    protected function updateRoutes(): void
+    {
+        $path = APPPATH . 'Config/Routes.php';
+        if (!file_exists($path)) {
+            return;
         }
 
-        file_put_contents($path, $content);
-        CLI::write("  " . CLI::color('✔', 'green') . " Config/AuthView.php updated.");
+        $content = file_get_contents($path);
+
+        // Check if already updated
+        if (str_contains($content, 'Jengo Inertia Auth Routes')) {
+            return;
+        }
+
+        $stubPath = __DIR__ . '/../Publisher/Stubs/Auth/Config/Routes.php';
+        $routesStub = file_get_contents($stubPath);
+        
+        // Remove php opening tag and imports from stub for cleaner injection if needed, 
+        // but here we might just want to append or replace the auth section.
+        
+        // Simple approach: Replace service('auth')->routes($routes); with Jengo routes
+        $search = "service('auth')->routes(\$routes);";
+        if (str_contains($content, $search)) {
+            $replacement = "\n// Jengo Inertia Auth Routes\n" . trim(str_replace('<?php', '', $routesStub));
+            $content = str_replace($search, $replacement, $content);
+        } else {
+            // Append if not found
+            $content .= "\n\n// Jengo Inertia Auth Routes\n" . trim(str_replace('<?php', '', $routesStub));
+        }
+
+        $this->writeFile($path, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Injected Jengo Auth routes into Config/Routes.php.', 'dark_gray');
     }
 }

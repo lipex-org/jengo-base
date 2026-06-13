@@ -5,15 +5,13 @@ declare(strict_types=1);
 namespace Jengo\Base\Setups;
 
 use CodeIgniter\CLI\CLI;
-use Jengo\Base\Installers\Libraries\EnvHandler;
 use Jengo\Base\Setups\Contracts\SetupInterface;
+use Jengo\Base\Traits\IsSetupOrInstaller;
 
 abstract class AbstractSetup implements SetupInterface
 {
-    protected function env(): EnvHandler
-    {
-        return new EnvHandler(ROOTPATH . '.env');
-    }
+    use IsSetupOrInstaller;
+
     protected function renderHeader(string $title, string $subtitle): void
     {
         CLI::write("  " . str_repeat('━', 60), 'dark_gray');
@@ -38,17 +36,12 @@ abstract class AbstractSetup implements SetupInterface
         }
 
         CLI::write("  " . CLI::color('●', 'light_cyan') . " Package " . CLI::color($package, 'cyan') . " is missing. Installing...");
-        CLI::newLine();
 
-        $output = [];
-        exec("composer require {$package}", $output, $returnVar);
+        $composer = $this->composer();
+        $composer->run($composer->getAddCommand([$package]), ROOTPATH);
 
-        if ($returnVar !== 0) {
-            CLI::newLine();
+        if (!$this->isPackageInstalled($package)) {
             CLI::error("  Failed to install {$package}.");
-            foreach ($output as $line) {
-                CLI::error("  " . $line);
-            }
             return false;
         }
 
