@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Libraries;
 
+use CodeIgniter\Entity\Entity;
+
 class Arr
 {
     protected array $data = [];
@@ -11,9 +13,14 @@ class Arr
     /**
      * Static entry point.
      */
-    public static function set(array $array): static
+    public static function set(array|Entity $array): static
     {
         $static = new static();
+
+        if ($array instanceof Entity) {
+            $array = $array->toArray();
+        }
+
         $static->data = $array;
         return $static;
     }
