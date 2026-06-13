@@ -35,21 +35,21 @@ class AuthSetup extends AbstractSetup
         // 2. Run Shield Setup if not already done
         if (!file_exists(APPPATH . 'Config/Auth.php')) {
             CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Running Shield setup...');
-            $this->call('shield:setup', ['--yes']);
+            $this->command('shield:setup', [], ['n', 'n', 'n']);
         }
 
         // 3. Publish Jengo Auth Stubs
         CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Publishing Jengo Auth components...');
-        
+
         // Configs
         $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Config', 'app/Config');
-        
+
         // Controllers
         $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Controllers', 'app/Controllers');
-        
+
         // Layouts
         $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/layouts', 'app/Views/layouts');
-        
+
         // Views
         $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Views', 'app/Views/auth');
 
@@ -121,10 +121,10 @@ class AuthSetup extends AbstractSetup
 
         $stubPath = __DIR__ . '/../Publisher/Stubs/Auth/Config/Routes.php';
         $routesStub = file_get_contents($stubPath);
-        
+
         // Remove php opening tag and imports from stub for cleaner injection if needed, 
         // but here we might just want to append or replace the auth section.
-        
+
         // Simple approach: Replace service('auth')->routes($routes); with Jengo routes
         $search = "service('auth')->routes(\$routes);";
         if (str_contains($content, $search)) {

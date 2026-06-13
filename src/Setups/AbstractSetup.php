@@ -49,12 +49,4 @@ abstract class AbstractSetup implements SetupInterface
         CLI::write("  " . CLI::color('✔', 'green') . " Package " . CLI::color($package, 'cyan') . " installed successfully.");
         return true;
     }
-
-    /**
-     * Call another spark command.
-     */
-    protected function call(string $command, array $params = []): void
-    {
-        command($command . ' ' . implode(' ', $params));
-    }
 }

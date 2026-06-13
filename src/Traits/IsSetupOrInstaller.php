@@ -2,7 +2,9 @@
 
 namespace Jengo\Base\Traits;
 
+use CodeIgniter\CLI\CLI;
 use CodeIgniter\Publisher\Publisher;
+use CodeIgniter\Test\Mock\MockInputOutput;
 use Jengo\Base\Installers\Libraries\EnvHandler;
 use Jengo\Base\Libraries\PackageManager;
 use RuntimeException;
@@ -97,5 +99,21 @@ trait IsSetupOrInstaller
         }
 
         return new EnvHandler($path);
+    }
+
+
+    /**
+     * Call another spark command.
+     */
+    protected function command(string $command, array $params = [], array $inputs = []): void
+    {
+        $io = new MockInputOutput();
+        CLI::setInputOutput($io);
+
+        $io->setInputs($inputs);
+
+        command($command . ' ' . implode(' ', $params));
+
+        CLI::resetInputOutput();
     }
 }

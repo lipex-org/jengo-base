@@ -24,6 +24,11 @@ class TsInstaller extends AbstractInstaller
         return ['vite'];
     }
 
+    public static function reasonForSkipping(): string
+    {
+        return '';
+    }
+
     public function shouldRun(): bool
     {
         return !file_exists(ROOTPATH . 'tsconfig.json');
@@ -81,9 +86,12 @@ class TsInstaller extends AbstractInstaller
         $packageJson = json_decode(file_get_contents($packageJsonPath), true);
         $deps = array_merge($packageJson['dependencies'] ?? [], $packageJson['devDependencies'] ?? []);
 
-        if (isset($deps['react'])) return 'react';
-        if (isset($deps['vue'])) return 'vue';
-        if (isset($deps['svelte'])) return 'svelte';
+        if (isset($deps['react']))
+            return 'react';
+        if (isset($deps['vue']))
+            return 'vue';
+        if (isset($deps['svelte']))
+            return 'svelte';
 
         return null;
     }
@@ -91,38 +99,41 @@ class TsInstaller extends AbstractInstaller
     protected function updateTsConfigForReact(): void
     {
         $path = ROOTPATH . 'tsconfig.json';
-        if (!file_exists($path)) return;
+        if (!file_exists($path))
+            return;
 
         $config = json_decode(file_get_contents($path), true);
-        
+
         $config['compilerOptions']['jsx'] = 'react-jsx';
-        
+
         $this->writeFile($path, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     protected function updateTsConfigForVue(): void
     {
         $path = ROOTPATH . 'tsconfig.json';
-        if (!file_exists($path)) return;
+        if (!file_exists($path))
+            return;
 
         $config = json_decode(file_get_contents($path), true);
-        
+
         $config['compilerOptions']['jsx'] = 'preserve';
         $config['compilerOptions']['moduleResolution'] = 'bundler';
-        
+
         $this->writeFile($path, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 
     protected function updateTsConfigForSvelte(): void
     {
         $path = ROOTPATH . 'tsconfig.json';
-        if (!file_exists($path)) return;
+        if (!file_exists($path))
+            return;
 
         $config = json_decode(file_get_contents($path), true);
-        
+
         $config['compilerOptions']['moduleResolution'] = 'bundler';
         $config['compilerOptions']['verbatimModuleSyntax'] = true;
-        
+
         $this->writeFile($path, json_encode($config, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
     }
 }
