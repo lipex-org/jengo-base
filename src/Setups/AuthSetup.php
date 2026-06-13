@@ -32,7 +32,7 @@ class AuthSetup extends AbstractSetup
         }
 
         $this->runShieldSetup();
-        
+
         $isInertiaInstalled = file_exists(ROOTPATH . 'vendor/jengo/inertia/composer.json') || class_exists('\Jengo\Inertia\Inertia');
 
         if ($isInertiaInstalled) {
@@ -52,20 +52,20 @@ class AuthSetup extends AbstractSetup
 
         // 1. Publish Configs
         $this->copyAndReplace($sourceDir . 'Auth.php', $destDir . 'Auth.php', [
-            'namespace CodeIgniter\Shield\Config'  => 'namespace Config',
-            'use CodeIgniter\Config\BaseConfig;'   => 'use CodeIgniter\Shield\Config\Auth as ShieldAuth;',
-            'extends BaseConfig'                   => 'extends ShieldAuth',
+            'namespace CodeIgniter\Shield\Config' => 'namespace Config',
+            'use CodeIgniter\Config\BaseConfig;' => 'use CodeIgniter\Shield\Config\Auth as ShieldAuth;',
+            'extends BaseConfig' => 'extends ShieldAuth',
         ]);
 
         $this->copyAndReplace($sourceDir . 'AuthGroups.php', $destDir . 'AuthGroups.php', [
-            'namespace CodeIgniter\Shield\Config'  => 'namespace Config',
-            'use CodeIgniter\Config\BaseConfig;'   => 'use CodeIgniter\Shield\Config\AuthGroups as ShieldAuthGroups;',
-            'extends BaseConfig'                   => 'extends ShieldAuthGroups',
+            'namespace CodeIgniter\Shield\Config' => 'namespace Config',
+            'use CodeIgniter\Config\BaseConfig;' => 'use CodeIgniter\Shield\Config\AuthGroups as ShieldAuthGroups;',
+            'extends BaseConfig' => 'extends ShieldAuthGroups',
         ]);
 
         $this->copyAndReplace($sourceDir . 'AuthToken.php', $destDir . 'AuthToken.php', [
             'namespace CodeIgniter\Shield\Config;' => "namespace Config;\n\nuse CodeIgniter\Shield\Config\AuthToken as ShieldAuthToken;",
-            'extends BaseAuthToken'                => 'extends ShieldAuthToken',
+            'extends BaseAuthToken' => 'extends ShieldAuthToken',
         ]);
 
         // 2. Autoload Helpers
@@ -106,16 +106,18 @@ class AuthSetup extends AbstractSetup
 
     private function copyAndReplace(string $source, string $dest, array $replacements): void
     {
-        if (!file_exists($source)) return;
-        if (file_exists($dest)) return; // Don't overwrite if it exists
-        
+        if (!file_exists($source))
+            return;
+        if (file_exists($dest))
+            return; // Don't overwrite if it exists
+
         $content = file_get_contents($source);
         $content = str_replace(array_keys($replacements), array_values($replacements), $content);
-        
+
         if (!is_dir(dirname($dest))) {
             mkdir(dirname($dest), 0777, true);
         }
-        
+
         file_put_contents($dest, $content);
     }
 
@@ -134,7 +136,7 @@ class AuthSetup extends AbstractSetup
         $routesPath = APPPATH . 'Config/Routes.php';
         if (file_exists($routesPath)) {
             $content = file_get_contents($routesPath);
-            
+
             // Exclude default Shield login and register routes
             if (str_contains($content, "service('auth')->routes(\$routes);")) {
                 $content = str_replace(
@@ -145,7 +147,7 @@ class AuthSetup extends AbstractSetup
             }
 
             $inertiaRoutes = "\n// Jengo Inertia Auth Routes\n\$routes->get('login', '\App\Controllers\Auth\AuthController::loginView', ['as' => 'login']);\n\$routes->get('register', '\App\Controllers\Auth\AuthController::registerView', ['as' => 'register']);\n";
-            
+
             if (!str_contains($content, "AuthController::loginView")) {
                 $content .= $inertiaRoutes;
             }
@@ -161,7 +163,7 @@ class AuthSetup extends AbstractSetup
         CLI::write("  " . CLI::color('●', 'light_cyan') . " Applying Jengo Blueprint styling to Auth views...");
 
         $stubsDir = __DIR__ . '/../Publisher/Stubs/Auth/';
-        
+
         // 1. Publish Layout
         $layoutDest = APPPATH . 'Views/layouts/auth.layout.php';
         if (!is_dir(dirname($layoutDest))) {
@@ -174,7 +176,7 @@ class AuthSetup extends AbstractSetup
         if (!is_dir($viewsDest)) {
             mkdir($viewsDest, 0777, true);
         }
-        
+
         copy($stubsDir . 'Views/login.php', $viewsDest . 'login.php');
         copy($stubsDir . 'Views/register.php', $viewsDest . 'register.php');
 
