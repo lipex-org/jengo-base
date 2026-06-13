@@ -63,7 +63,7 @@ trait IsSetupOrInstaller
             throw new RuntimeException("Publish source must be an absolute path.");
         }
 
-        $destDir = "{$this->root}$destination";
+        $destDir = ROOTPATH . $destination;
 
         if (!is_dir($destDir)) {
             mkdir($destDir, 0777, true);
