@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace Jengo\Base\Libraries;
 
 use CodeIgniter\Entity\Entity;
+use JsonSerializable;
 
-class Arr
+class Arr implements JsonSerializable
 {
     protected array $data = [];
 
@@ -286,5 +287,10 @@ class Arr
     {
         $this->data[$key] = $value;
         return $this;
+    }
+
+    public function jsonSerialize(): array
+    {
+        return $this->toArray();
     }
 }
