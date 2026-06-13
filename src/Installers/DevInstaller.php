@@ -46,16 +46,10 @@ class DevInstaller extends AbstractInstaller
             ->save();
 
         // 2. Install concurrently
-        $pm = $this->detectPackageManager();
-        CLI::write("  " . CLI::color('●', 'cyan') . " Installing concurrently via {$pm}...", 'dark_gray');
+        $pm = $this->node();
+        CLI::write("  " . CLI::color('●', 'cyan') . " Installing concurrently via {$pm->getManager()}...", 'dark_gray');
 
-        $installCmd = match ($pm) {
-            'pnpm' => 'pnpm add -D concurrently',
-            'yarn' => 'yarn add -D concurrently',
-            default => 'npm install --save-dev concurrently',
-        };
-
-        $this->run($installCmd);
+        $this->run($pm->getAddCommand(['concurrently']));
 
         // 3. Update composer.json
         CLI::write('  ' . CLI::color('●', 'cyan') . ' Updating composer.json with dev script and high timeout...', 'dark_gray');
