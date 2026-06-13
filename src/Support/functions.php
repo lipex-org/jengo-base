@@ -1,5 +1,7 @@
 <?php
 
+namespace Jengo\Base\Support;
+
 use Jengo\Base\Libraries\Arr;
 use Jengo\Base\Libraries\Str;
 
