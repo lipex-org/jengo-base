@@ -130,23 +130,66 @@ trait IsSetupOrInstaller
             return;
         }
 
-        $src  = $this->isPathAbsolute($source) ? $source : ROOTPATH . $source;
+        $src = $this->isPathAbsolute($source) ? $source : ROOTPATH . $source;
         $dest = $this->isPathAbsolute($destination) ? $destination : ROOTPATH . $destination;
 
         if (file_exists($dest)) {
             return;
         }
 
-        if (! file_exists($src)) {
+        if (!file_exists($src)) {
             return;
         }
 
         $directory = dirname($dest);
 
-        if (! is_dir($directory)) {
+        if (!is_dir($directory)) {
             mkdir($directory, 0777, true);
         }
 
         copy($src, $dest);
+    }
+
+    protected function addHelperToAutoload(array $helpers): void
+    {
+        $path = APPPATH . 'Config/Autoload.php';
+
+        if (!file_exists($path)) {
+            CLI::error("Config/Autoload.php not found.");
+            return;
+        }
+
+        $content = file_get_contents($path);
+        $updated = false;
+
+        foreach ($helpers as $helper) {
+            // Escape backslashes for standard string comparison
+            $normalizedHelper = str_replace('\\', '\\\\', $helper);
+
+            // Check if this specific helper is already configured
+            if (str_contains($content, $helper) || str_contains($content, $normalizedHelper)) {
+                CLI::write("  " . CLI::color('✔', 'green') . " Helper '{$helper}' is already configured.");
+                continue;
+            }
+
+            // Properly escape backslashes for the regular expression replacement string
+            $regexReplacement = str_replace('\\', '\\\\\\\\', $helper);
+
+            // Inject the helper right after the opening bracket of the public $helpers array
+            $content = preg_replace(
+                '/(public\s+\$helpers\s*=\s*\[)/',
+                "$1\n        '{$regexReplacement}',",
+                $content,
+                1
+            );
+
+            $updated = true;
+            CLI::write("  " . CLI::color('✔', 'green') . " Helper '{$helper}' added to Autoload config.");
+        }
+
+        // Only write back to the file if changes were actually made
+        if ($updated) {
+            file_put_contents($path, $content);
+        }
     }
 }

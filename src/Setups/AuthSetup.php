@@ -36,9 +36,12 @@ class AuthSetup extends AbstractSetup
 
         // Publish Shield Config
         $this->copy([
-            VENDORPATH . 'codeigniter4/shield/src/Config/Auth.php'      => 'app/Config/Auth.php',
+            VENDORPATH . 'codeigniter4/shield/src/Config/Auth.php' => 'app/Config/Auth.php',
             VENDORPATH . 'codeigniter4/shield/src/Config/AuthToken.php' => 'app/Config/AuthToken.php',
         ]);
+
+        // Publish authentication actions
+        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Authentication/', 'app/Authentication');
 
         // 3. Publish Jengo Auth Stubs
         CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Publishing Jengo Auth components...');
@@ -58,6 +61,10 @@ class AuthSetup extends AbstractSetup
         $this->updateAuthTokenConfig();
         $this->updateEmailConfig();
         $this->updateSecurityConfig();
+        $this->addHelperToAutoload([
+            'CodeIgniter\Settings\Helpers\setting',
+            'CodeIgniter\Shield\Helpers\auth',
+        ]);
 
         CLI::newLine();
         CLI::write('  ' . CLI::color('✔', 'green') . ' Auth suite configured successfully.');
