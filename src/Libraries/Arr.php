@@ -657,6 +657,17 @@ class Arr implements JsonSerializable
     }
 
     /**
+     * Join the array elements with a string.
+     *
+     * @param string $glue
+     * @return string
+     */
+    public function implode(string $glue = ''): string
+    {
+        return implode($glue, $this->data);
+    }
+
+    /**
      * Specify data which should be serialized to JSON.
      *
      * @return array
