@@ -2,27 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Commands;
+namespace Jengo\Base\Commands\Variants\Tail;
 
-use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
 use CodeIgniter\I18n\Time;
+use Jengo\Base\Commands\Core\AbstractVariant;
 
-class LogTailCommand extends BaseCommand
+class LogVariant extends AbstractVariant
 {
-    protected $group = 'Jengo';
-    protected $name = 'jengo:tail-log';
-    protected $description = 'Stream application logs in real-time.';
-    protected $usage = 'jengo:tail-log [options]';
-
-    protected $options = [
-        '--level' => 'Filter by log level (e.g., error,warning,info)',
-        '--date' => 'Target a specific date (YYYY-MM-DD)',
-        '--yesterday' => 'Target yesterday\'s log file',
-        '--search' => 'Search for a specific keyword in log messages',
-        '--lines' => 'Number of lines to show initially (default: 20)',
-    ];
-
     private array $levelColors = [
         'CRITICAL' => 'red',
         'ERROR' => 'light_red',
@@ -34,29 +21,42 @@ class LogTailCommand extends BaseCommand
         'EMERGENCY' => 'red',
     ];
 
-    /**
-     * For testing purposes to break the infinite loop.
-     */
     protected bool $once = false;
 
-    public function run(array $params)
+    public static function name(): string
+    {
+        return 'log';
+    }
+
+    public static function description(): string
+    {
+        return 'Stream application logs in real-time.';
+    }
+
+    public function options(): array
+    {
+        return [
+            '--level' => 'Filter by log level (e.g., error,warning,info)',
+            '--date' => 'Target a specific date (YYYY-MM-DD)',
+            '--yesterday' => 'Target yesterday\'s log file',
+            '--search' => 'Search for a specific keyword in log messages',
+            '--lines' => 'Number of lines to show initially (default: 20)',
+        ];
+    }
+
+    public function run(array $params): void
     {
         $date = $this->resolveDate();
         $this->tail($date);
     }
 
-    protected function getOption(string $name)
-    {
-        return CLI::getOption($name);
-    }
-
     protected function resolveDate(): string
     {
-        if ($this->getOption('yesterday')) {
+        if (CLI::getOption('yesterday')) {
             return Time::yesterday()->format('Y-m-d');
         }
 
-        if ($date = $this->getOption('date')) {
+        if ($date = CLI::getOption('date')) {
             return (string) $date;
         }
 
@@ -65,9 +65,9 @@ class LogTailCommand extends BaseCommand
 
     protected function tail(string $date): void
     {
-        $levels = $this->getOption('level') ? explode(',', strtolower((string) $this->getOption('level'))) : [];
-        $search = (string) ($this->getOption('search') ?? '');
-        $lines = (int) ($this->getOption('lines') ?? 20);
+        $levels = CLI::getOption('level') ? explode(',', strtolower((string) CLI::getOption('level'))) : [];
+        $search = (string) (CLI::getOption('search') ?? '');
+        $lines = (int) (CLI::getOption('lines') ?? 20);
 
         $autoSwitch = !CLI::getOption('date') && !CLI::getOption('yesterday');
         $currentDate = $date;
@@ -87,10 +87,8 @@ class LogTailCommand extends BaseCommand
             return;
         }
 
-        // 1. Show initial lines
         $this->printInitialLines($filePath, $lines, $levels, $search);
 
-        // 2. Seek to end for live tailing
         fseek($handle, 0, SEEK_END);
         $lastPos = ftell($handle);
 
@@ -99,7 +97,6 @@ class LogTailCommand extends BaseCommand
                 break;
             }
 
-            // Check for date change if we are in auto-switch mode (tailing "today")
             if ($autoSwitch) {
                 $today = Time::now()->format('Y-m-d');
                 if ($today !== $currentDate) {
@@ -173,8 +170,6 @@ class LogTailCommand extends BaseCommand
             return;
         }
 
-        // Read the file and get the last N lines.
-        // We read it as a whole to simplify things, daily logs are usually manageable.
         $lines = file($filePath, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         if ($lines === false) {
             return;
@@ -183,7 +178,6 @@ class LogTailCommand extends BaseCommand
         $lastLines = array_slice($lines, -$count);
 
         foreach ($lastLines as $line) {
-            // We append a newline because processLine expects it for raw output
             $this->processLine($line . PHP_EOL, $filterLevels, $searchKeyword);
         }
 
@@ -197,20 +191,14 @@ class LogTailCommand extends BaseCommand
         $parsed = $this->parseLine($line);
 
         if (!$parsed) {
-            // Unparseable line (e.g., stack trace or continuation)
-            // If no filters are active, we always show it.
-            // If filters ARE active, it's technically ambiguous, but for now we show it 
-            // to avoid missing critical info like stack traces.
             CLI::print($line);
             return;
         }
 
-        // Apply Level Filter
         if (!empty($filterLevels) && !in_array(strtolower($parsed['level']), $filterLevels, true)) {
             return;
         }
 
-        // Apply Search Filter
         if (!empty($searchKeyword) && !str_contains(strtolower($line), strtolower($searchKeyword))) {
             return;
         }
@@ -220,8 +208,6 @@ class LogTailCommand extends BaseCommand
 
     protected function parseLine(string $line): ?array
     {
-        // CI4 log format: LEVEL - YYYY-MM-DD HH:MM:SS --> Message
-        // Regex: /^([A-Z]+)\s+-\s+(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s+-->\s+(.*)$/
         if (preg_match('/^([A-Z]+)\s+-\s+(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})\s+-->\s+(.*)$/s', trim($line), $matches)) {
             return [
                 'level' => $matches[1],

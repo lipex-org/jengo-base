@@ -2,26 +2,31 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Vite\Commands;
+namespace Jengo\Base\Commands\Variants\Vite;
 
-use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
+use Jengo\Base\Commands\Core\AbstractVariant;
 use Jengo\Base\Vite\Config\ViteConfig;
 use Jengo\Base\Vite\Repositories\ViteRepository;
 use Jengo\Base\Vite\ViteEntryPointScanner;
 
-class ViteConfigCommand extends BaseCommand
+class ConfigVariant extends AbstractVariant
 {
-    protected $group       = 'Jengo';
-    protected $name        = 'jengo:vite-config';
-    protected $description = 'Returns the Vite entrypoint configuration as JSON.';
+    public static function name(): string
+    {
+        return 'config';
+    }
 
-    public function run(array $params)
+    public static function description(): string
+    {
+        return 'Returns the Vite entrypoint configuration as JSON.';
+    }
+
+    public function run(array $params): void
     {
         $scanner = new ViteEntryPointScanner();
-        $repo = new ViteRepository();
+        $repo    = new ViteRepository();
 
-        // scan 
         $config = new ViteConfig();
 
         $config->entrypoints = $scanner->scan();
@@ -29,7 +34,6 @@ class ViteConfigCommand extends BaseCommand
 
         $repo->cacheEntrypoints($config->entrypoints);
 
-        // Output raw JSON so the JS plugin can parse it
         $json = json_encode($config->toArray());
 
         CLI::write($json);

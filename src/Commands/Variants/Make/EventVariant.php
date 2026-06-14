@@ -2,37 +2,44 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Commands;
+namespace Jengo\Base\Commands\Variants\Make;
 
-use CodeIgniter\CLI\BaseCommand;
-use CodeIgniter\CLI\CLI;
-use CodeIgniter\CLI\GeneratorTrait;
 use Config\Generators;
+use Jengo\Base\Commands\Core\AbstractGeneratorVariant;
 
-class MakeEventCommand extends BaseCommand
+class EventVariant extends AbstractGeneratorVariant
 {
-    use GeneratorTrait {
-        prepare as prepareTrait;
-    }
-
-    protected $group = 'Jengo';
-    protected $name = 'jengo:make-event';
-    protected $description = 'Creates a master-grade Event and an optional Listener.';
-    protected $usage = 'jengo:make-event <name> [options]';
-
-    protected $arguments = [
-        'name' => 'The name of the event (e.g., OrderPlaced)',
-    ];
-
-    protected $options = [
-        '--no-listener' => 'Do not generate a listener for this event',
-    ];
+    protected $component = 'Events';
+    protected $directory = 'Events';
 
     private string $type = 'event';
-
     private array $eventParams = [];
 
-    public function run(array $params)
+    public static function name(): string
+    {
+        return 'event';
+    }
+
+    public static function description(): string
+    {
+        return 'Creates a master-grade Event and an optional Listener.';
+    }
+
+    public function arguments(): array
+    {
+        return [
+            'name' => 'The name of the event (e.g., OrderPlaced)',
+        ];
+    }
+
+    public function options(): array
+    {
+        return [
+            '--no-listener' => 'Do not generate a listener for this event',
+        ];
+    }
+
+    public function run(array $params): void
     {
         $this->component = "Events";
         $this->directory = "Events";
@@ -41,20 +48,22 @@ class MakeEventCommand extends BaseCommand
         $template = 'event.tpl.php';
         $this->type = $templateName;
 
-        $this->templatePath = config(Generators::class)->views[$this->name][$templateName];
+        $this->templatePath = config(Generators::class)->views['jengo:make']['event'][$templateName];
         $this->template = $template;
 
         $this->generateClass($params);
 
-        $noListener = array_key_exists('no-listener', $params);
+        $noListener = $this->getOption('no-listener') !== null;
 
         if ($noListener) {
             return;
         }
 
         $eventName = $this->eventParams['class'];
-        array_unshift($params,"{$eventName}Listener");
-        $params =array_diff($params, [$eventName]) |> array_unique(...) |> array_values(...);
+        array_unshift($params, "{$eventName}Listener");
+
+        // Manual implementation of pipe operator equivalent or simple array manipulation
+        $params = array_values(array_unique(array_diff($params, [$eventName])));
 
         $this->component = "EventsListeners";
         $this->directory = "Events\Listeners";
@@ -62,18 +71,12 @@ class MakeEventCommand extends BaseCommand
         $template = 'listener.tpl.php';
         $this->type = $templateName;
 
-        $this->templatePath = config(Generators::class)->views[$this->name][$templateName];
+        $this->templatePath = config(Generators::class)->views['jengo:make']['event'][$templateName];
         $this->template = $template;
-        
+
         $this->generateClass($params);
     }
 
-    /**
-     * Prepare options and do the necessary replacements.
-     *
-     * @param string $class
-     * @return string
-     */
     protected function prepare(string $class): string
     {
         $template = $this->prepareTrait($class);
@@ -98,7 +101,6 @@ class MakeEventCommand extends BaseCommand
             $search[] = "{event_name}";
             $replace[] = $name;
 
-            // 3. Perform the replacement in the template
             return str_replace($search, $replace, $template);
         }
 
@@ -107,7 +109,6 @@ class MakeEventCommand extends BaseCommand
         $replace[] = $this->eventParams['namespace'] . '\\' . $this->eventParams['class'];
         $replace[] = $this->eventParams['class'];
 
-        // 3. Perform the replacement in the template
         return str_replace($search, $replace, $template);
     }
 }
