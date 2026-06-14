@@ -3,6 +3,7 @@
 namespace Jengo\Base\Traits;
 
 use CodeIgniter\CLI\CLI;
+use CodeIgniter\CLI\InputOutput;
 use CodeIgniter\Publisher\Publisher;
 use CodeIgniter\Test\Mock\MockInputOutput;
 use Jengo\Base\Installers\Libraries\EnvHandler;
@@ -105,7 +106,7 @@ trait IsSetupOrInstaller
     /**
      * Call another spark command.
      */
-    protected function command(string $command, array $params = [], array $inputs = []): void
+    protected function command(string $command, array $params = [], array $inputs = []): MockInputOutput
     {
         $io = new MockInputOutput();
         CLI::setInputOutput($io);
@@ -115,5 +116,37 @@ trait IsSetupOrInstaller
         command($command . ' ' . implode(' ', $params));
 
         CLI::resetInputOutput();
+
+        return $io;
+    }
+
+    protected function copy(string|array $source, ?string $destination = null): void
+    {
+        if (is_array($source)) {
+            foreach ($source as $src => $dest) {
+                $this->copy($src, $dest);
+            }
+
+            return;
+        }
+
+        $src  = $this->isPathAbsolute($source) ? $source : ROOTPATH . $source;
+        $dest = $this->isPathAbsolute($destination) ? $destination : ROOTPATH . $destination;
+
+        if (file_exists($dest)) {
+            return;
+        }
+
+        if (! file_exists($src)) {
+            return;
+        }
+
+        $directory = dirname($dest);
+
+        if (! is_dir($directory)) {
+            mkdir($directory, 0777, true);
+        }
+
+        copy($src, $dest);
     }
 }

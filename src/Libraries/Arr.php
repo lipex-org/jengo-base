@@ -200,6 +200,11 @@ class Arr implements JsonSerializable
         return $this;
     }
 
+    public function length(): int
+    {
+        return count($this->data);
+    }
+
     /**
      * Get unique values (optionally by callback or key).
      */
