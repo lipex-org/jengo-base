@@ -40,13 +40,14 @@ class AuthSetup extends AbstractSetup
             VENDORPATH . 'codeigniter4/shield/src/Config/AuthToken.php' => 'app/Config/AuthToken.php',
         ]);
 
-        // Publish authentication actions
-        $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Authentication/', 'app/Authentication');
 
         // 3. Publish Jengo Auth Stubs
         CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Publishing Jengo Auth components...');
 
         if ($isInertia) {
+            // Publish authentication actions
+            $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Authentication/', 'app/Authentication');
+
             // Configs
             $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Config/Inertia', 'app/Config');
 
@@ -65,6 +66,7 @@ class AuthSetup extends AbstractSetup
             'CodeIgniter\Settings\Helpers\setting',
             'CodeIgniter\Shield\Helpers\auth',
         ]);
+        $this->updateFilters();
 
         CLI::newLine();
         CLI::write('  ' . CLI::color('✔', 'green') . ' Auth suite configured successfully.');
@@ -155,5 +157,51 @@ class AuthSetup extends AbstractSetup
 
         $this->writeFile($path, $content);
         CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/Security.php csrfProtection to session.', 'dark_gray');
+    }
+
+    protected function updateFilters(): void
+    {
+        $path = APPPATH . 'Config/Filters.php';
+
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        // 1. Add the alias to the $aliases array if it doesn't exist
+        if (!str_contains($content, "'inertia' => \\App\\Filters\\Inertia::class")) {
+            // Find the public $aliases = [ line
+            $aliasPattern = '/(public\s+array\s+\$aliases\s*=\s*\[)/';
+            $aliasReplacement = "$1\n        'inertia' => \\App\\Filters\\Inertia::class,";
+            $content = preg_replace($aliasPattern, $aliasReplacement, $content);
+        }
+
+        // 2. Add 'inertia' to the globals -> before array
+        // Looks for 'before' => [ and ensures 'inertia' isn't already added
+        if (preg_match('/\'before\'\s*=>\s*\[([^\]]*)/s', $content, $matches)) {
+            if (!str_contains($matches[1], "'inertia'")) {
+                $content = preg_replace(
+                    '/(\'before\'\s*=>\s*\[)/',
+                    "$1\n            'inertia',",
+                    $content
+                );
+            }
+        }
+
+        // 3. Add 'inertia' to the globals -> after array
+        // Looks for 'after' => [ and ensures 'inertia' isn't already added
+        if (preg_match('/\'after\'\s*=>\s*\[([^\]]*)/s', $content, $matches)) {
+            if (!str_contains($matches[1], "'inertia'")) {
+                $content = preg_replace(
+                    '/(\'after\'\s*=>\s*\[)/',
+                    "$1\n            'inertia',",
+                    $content
+                );
+            }
+        }
+
+        // Save the updated configuration back to the file
+        file_put_contents($path, $content);
     }
 }

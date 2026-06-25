@@ -2,15 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * This file is part of CodeIgniter Shield.
- *
- * (c) CodeIgniter Foundation <admin@codeigniter.com>
- *
- * For the full copyright and license information, please view
- * the LICENSE file that was distributed with this source code.
- */
-
 namespace App\Controllers\Auth;
 
 use App\Controllers\BaseController;
@@ -18,26 +9,16 @@ use CodeIgniter\Events\Events;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RedirectResponse;
+use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\I18n\Time;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Models\LoginModel;
 use CodeIgniter\Shield\Models\UserIdentityModel;
 use CodeIgniter\Shield\Models\UserModel;
-use CodeIgniter\Shield\Traits\Viewable;
 use Jengo\Inertia\Inertia;
 
-/**
- * Handles "Magic Link" logins - an email-based
- * no-password login protocol. This works much
- * like password reset would, but Shield provides
- * this in place of password reset. It can also
- * be used on it's own without an email/password
- * login strategy.
- */
 class MagicLinkController extends BaseController
 {
-    use Viewable;
-
     /**
      * @var UserModel
      */
@@ -55,7 +36,7 @@ class MagicLinkController extends BaseController
      * Displays the view to enter their email address
      * so an email can be sent to them.
      *
-     * @return RedirectResponse|string
+     * @return ResponseInterface|string
      */
     public function loginView()
     {
@@ -67,11 +48,7 @@ class MagicLinkController extends BaseController
             return redirect()->to(config('Auth')->loginRedirect());
         }
 
-        return Inertia::render('Auth/MagicLink', [
-            'status' => session('status'),
-            'error' => session('error'),
-            'errors' => session('errors'),
-        ]);
+        return Inertia::render('Auth/MagicLink');
     }
 
     /**
@@ -79,7 +56,7 @@ class MagicLinkController extends BaseController
      * to a user identity, and sends an email to the given
      * email address.
      *
-     * @return RedirectResponse|string
+     * @return ResponseInterface|string
      */
     public function loginAction()
     {
@@ -87,15 +64,16 @@ class MagicLinkController extends BaseController
             return redirect()->route('login')->with('error', lang('Auth.magicLinkDisabled'));
         }
 
+        $data = $this->request->getJSON(true) ?? $this->request->getPost();
+
         // Validate email format
         $rules = $this->getValidationRules();
-        $data = $this->request->getJSON(true) ?? [];
         if (!$this->validateData($data, $rules, [], config('Auth')->DBGroup)) {
             return redirect()->route('magic-link')->with('errors', $this->validator->getErrors());
         }
 
         // Check if the user exists
-        $email = $data['email'] ?? '';
+        $email = $data['email'] ?? null;
         $user = $this->provider->findByCredentials(['email' => $email]);
 
         if ($user === null) {
@@ -128,24 +106,26 @@ class MagicLinkController extends BaseController
 
         // Send the user an email with the code
         helper('email');
-        $email = emailer(['mailType' => 'html'])
+        $emailObj = emailer(['mailType' => 'html'])
             ->setFrom(setting('Email.fromEmail'), setting('Email.fromName') ?? '');
-        $email->setTo($user->email);
-        $email->setSubject(lang('Auth.magicLinkSubject'));
-        $email->setMessage($this->view(
+        $emailObj->setTo($user->email);
+        $emailObj->setSubject(lang('Auth.magicLinkSubject'));
+
+        // Use standard CI4 view for email, but keep an eye on if user wants this custom too
+        $emailObj->setMessage(view(
             setting('Auth.views')['magic-link-email'],
             ['token' => $token, 'user' => $user, 'ipAddress' => $ipAddress, 'userAgent' => $userAgent, 'date' => $date],
             ['debug' => false],
         ));
 
-        if ($email->send(false) === false) {
-            log_message('error', $email->printDebugger(['headers']));
+        if ($emailObj->send(false) === false) {
+            log_message('error', $emailObj->printDebugger(['headers']));
 
             return redirect()->route('magic-link')->with('error', lang('Auth.unableSendEmailToUser', [$user->email]));
         }
 
         // Clear the email
-        $email->clear();
+        $emailObj->clear();
 
         return $this->displayMessage();
     }

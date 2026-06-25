@@ -2,15 +2,6 @@
 
 declare(strict_types=1);
 
-/**
- * This file is part of CodeIgniter Shield.
- *
- * (c) CodeIgniter Foundation <admin@codeigniter.com>
- *
- * For the full copyright and license information, please view
- * the LICENSE file that was distributed with this source code.
- */
-
 namespace App\Controllers\Auth;
 
 use App\Controllers\BaseController;
@@ -18,16 +9,14 @@ use CodeIgniter\HTTP\RedirectResponse;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Shield\Authentication\Authenticators\Session;
 use CodeIgniter\Shield\Validation\ValidationRules;
-use Jengo\Inertia\Extras\Http;
 use Jengo\Inertia\Inertia;
 
 class LoginController extends BaseController
 {
-
     /**
      * Displays the form the login to the site.
      *
-     * @return RedirectResponse|ResponseInterface
+     * @return ResponseInterface|string
      */
     public function loginView()
     {
@@ -43,20 +32,10 @@ class LoginController extends BaseController
             return redirect()->route('auth-action-show');
         }
 
-        $res = Inertia::render('Auth/Login', [
+        return Inertia::render('Auth/Login', [
+            'canResetPassword' => setting('Auth.allowMagicLinkLogins'),
             'status' => session('status'),
-            'error' => session('error'),
-            'errors' => session('errors'),
         ]);
-
-        //if (Http::isInertiaRequest()) {
-        //    log_message('debug', 'Login view rendered: Inertia request detected, dumping response data:' . json_encode($res->getHeaderLine('Content-Type'), JSON_PRETTY_PRINT));
-        //    var_dump('Login view rendered: ');
-        //    var_dump($res);
-        //    die;
-        //}
-
-        return $res;
     }
 
     /**
@@ -67,22 +46,17 @@ class LoginController extends BaseController
         // Validate here first, since some things,
         // like the password, can only be validated properly here.
         $rules = $this->getValidationRules();
-        $data = $this->request->getJSON(true) ?? [];
+
+        $data = $this->request->getJSON(true) ?? $this->request->getPost();
 
         if (!$this->validateData($data, $rules, [], config('Auth')->DBGroup)) {
-            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+            return redirect()->to('/login')->withInput()->with('errors', $this->validator->getErrors());
         }
 
         /** @var array $credentials */
-        $credentials = [];
-        foreach (setting('Auth.validFields') as $field) {
-            if (isset($data[$field])) {
-                $credentials[$field] = $data[$field];
-            }
-        }
-
+        $credentials = array_intersect_key($data, array_fill_keys(setting('Auth.validFields'), null));
         $credentials = array_filter($credentials);
-        $credentials['password'] = $data['password'] ?? '';
+        $credentials['password'] = $data['password'] ?? null;
         $remember = (bool) ($data['remember'] ?? false);
 
         /** @var Session $authenticator */
@@ -117,7 +91,7 @@ class LoginController extends BaseController
     /**
      * Logs the current user out.
      */
-    public function logoutAction(): RedirectResponse
+    public function logoutAction(): \CodeIgniter\HTTP\ResponseInterface
     {
         // Capture logout redirect URL before auth logout,
         // otherwise you cannot check the user in `logoutRedirect()`.
@@ -125,6 +99,6 @@ class LoginController extends BaseController
 
         auth()->logout();
 
-        return redirect()->to($url)->with('message', lang('Auth.successLogout'));
+        return Inertia::location($url);
     }
 }
