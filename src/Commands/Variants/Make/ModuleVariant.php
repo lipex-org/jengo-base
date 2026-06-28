@@ -48,17 +48,21 @@ class ModuleVariant extends AbstractVariant
         $group = CLI::getOption('group');
         $force = CLI::getOption('force') !== null;
 
+        // Normalize group slashes for target directory and namespace
+        $groupPath = $group ? str_replace('\\', '/', (string)$group) : '';
+        $groupNamespace = $group ? str_replace('/', '\\', (string)$group) : '';
+
         // Build target path
         $targetDir = ROOTPATH . 'modules/';
-        if ($group) {
-            $targetDir .= trim((string)$group, '/\\') . '/';
+        if ($groupPath) {
+            $targetDir .= trim($groupPath, '/') . '/';
         }
         $targetDir .= trim($name, '/\\') . '/';
 
         // Calculate expected namespace
         $namespace = 'Modules\\';
-        if ($group) {
-            $namespace .= trim((string)$group, '\\') . '\\';
+        if ($groupNamespace) {
+            $namespace .= trim($groupNamespace, '\\') . '\\';
         }
         $namespace .= trim($name, '\\');
 
