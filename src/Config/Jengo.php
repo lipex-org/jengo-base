@@ -1,4 +1,4 @@
-<?php 
+<?php
 
 declare(strict_types=1);
 
@@ -9,7 +9,7 @@ use Jengo\Base\Installers\BlueprintInstaller;
 use Jengo\Base\Installers\MaizzleInstaller;
 use Jengo\Base\Installers\ViteInstaller;
 
-class JengoBase extends BaseConfig
+class Jengo extends BaseConfig
 {
     /**
      * List of installer class names.
