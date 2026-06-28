@@ -43,6 +43,8 @@ class MailhogInstaller extends AbstractInstaller
 
         $this->env()
             ->addTitle('Mailhog Email Config')
+            ->set('email.fromEmail', 'test@jengo.com')
+            ->set('email.fromName', 'Jengo')
             ->set('email.protocol', 'smtp')
             ->set('email.SMTPHost', 'localhost')
             ->set('email.SMTPPort', '1025')
