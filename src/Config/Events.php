@@ -10,3 +10,7 @@ use Jengo\Base\Libraries\ModuleDiscovery;
 Events::on('pre_system', static function () {
     ModuleDiscovery::discoverAndRegister();
 });
+
+Events::on('pre_command', static function () {
+    ModuleDiscovery::discoverAndRegister();
+});
