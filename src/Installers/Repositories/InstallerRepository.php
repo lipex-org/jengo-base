@@ -4,10 +4,8 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Installers\Repositories;
 
-use CodeIgniter\CLI\CLI;
-use Jengo\Base\Config\JengoBase;
+use Jengo\Base\Config\Jengo;
 use Jengo\Base\Installers\Contracts\InstallerInterface;
-use RuntimeException;
 
 class InstallerRepository
 {
@@ -16,7 +14,7 @@ class InstallerRepository
     {
         $locator = service('locator');
         $files = $locator->listFiles('Installers/');
-        
+
         $installers = [];
         $classes = [];
 
@@ -32,7 +30,7 @@ class InstallerRepository
         }
 
         // Merge with config for backward compatibility and explicit control
-        $config = config(JengoBase::class);
+        $config = config(Jengo::class);
         if (isset($config->installers)) {
             $classes = array_unique(array_merge($classes, $config->installers));
         }

@@ -69,41 +69,36 @@ class ModuleDiscovery
         $modules = [];
 
         try {
-            $iterator = new \DirectoryIterator($modulesDir);
-            foreach ($iterator as $item) {
-                if ($item->isDot() || !$item->isDir()) {
-                    continue;
-                }
-
-                $name = $item->getFilename();
-                $path = $item->getRealPath();
-
-                if (self::isValidModule($path)) {
-                    // Standalone module
-                    $modules["Modules\\{$name}"] = $path;
-                } else {
-                    // Grouped modules directory (e.g. Core, Financial)
-                    $subIterator = new \DirectoryIterator($path);
-                    foreach ($subIterator as $subItem) {
-                        if ($subItem->isDot() || !$subItem->isDir()) {
-                            continue;
-                        }
-
-                        $subName = $subItem->getFilename();
-                        $subPath = $subItem->getRealPath();
-
-                        if (self::isValidModule($subPath)) {
-                            $modules["Modules\\{$name}\\{$subName}"] = $subPath;
-                        }
-                    }
-                }
-            }
+            self::scanRecursive($modulesDir, $modulesDir, $modules);
         } catch (\Throwable $e) {
             // Fail-Safe Processing: log rather than crashing
             log_message('error', '[Jengo Module Discovery] ' . $e->getMessage());
         }
 
         return $modules;
+    }
+
+    /**
+     * Recursively scan directories to find module roots.
+     */
+    private static function scanRecursive(string $baseDir, string $currentDir, array &$modules): void
+    {
+        if (self::isValidModule($currentDir)) {
+            // Calculate relative path from baseDir
+            $relativePath = ltrim(substr($currentDir, strlen($baseDir)), '/\\');
+            // Convert path slashes to namespace backslashes
+            $namespacePart = str_replace(['/', '\\'], '\\', $relativePath);
+            $modules["Modules\\{$namespacePart}"] = $currentDir;
+            return;
+        }
+
+        $iterator = new \DirectoryIterator($currentDir);
+        foreach ($iterator as $item) {
+            if ($item->isDot() || !$item->isDir()) {
+                continue;
+            }
+            self::scanRecursive($baseDir, $item->getRealPath(), $modules);
+        }
     }
 
     /**
