@@ -48,7 +48,7 @@ class MagicLinkController extends BaseController
             return redirect()->to(config('Auth')->loginRedirect());
         }
 
-        return Inertia::render('Auth/MagicLink');
+        return Inertia::render('auth/magic-link');
     }
 
     /**
@@ -135,7 +135,7 @@ class MagicLinkController extends BaseController
      */
     protected function displayMessage()
     {
-        return Inertia::render('Auth/MagicLinkMessage');
+        return Inertia::render('auth/magic-link-message');
     }
 
     /**

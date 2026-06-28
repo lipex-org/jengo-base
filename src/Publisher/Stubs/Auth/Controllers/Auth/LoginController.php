@@ -32,7 +32,7 @@ class LoginController extends BaseController
             return redirect()->route('auth-action-show');
         }
 
-        return Inertia::render('Auth/Login', [
+        return Inertia::render('auth/login', [
             'canResetPassword' => setting('Auth.allowMagicLinkLogins'),
             'status' => session('status'),
         ]);
@@ -91,7 +91,7 @@ class LoginController extends BaseController
     /**
      * Logs the current user out.
      */
-    public function logoutAction(): \CodeIgniter\HTTP\ResponseInterface
+    public function logoutAction(): ResponseInterface
     {
         // Capture logout redirect URL before auth logout,
         // otherwise you cannot check the user in `logoutRedirect()`.

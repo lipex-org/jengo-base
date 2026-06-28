@@ -32,7 +32,8 @@ class ViteInstaller extends AbstractInstaller
     public function install(): void
     {
         $this->addRun();
-        
+        $this->ensureClientDirectory();
+
         $canInstallDependencies = $this->wantsToInstallDependencies();
         $pm = null;
 
@@ -112,7 +113,7 @@ class ViteInstaller extends AbstractInstaller
             return;
         }
 
-        $injection = "\n<?php\nuse function Jengo\Base\\vite_tags;\n?>\n\n<?= vite_tags() ?>\n";
+        $injection = "\n<?= Jengo\Base\\vite_tags() ?>\n";
 
         $this->writeFile($headerPath, $content . $injection);
 
@@ -154,6 +155,7 @@ class ViteInstaller extends AbstractInstaller
         if ($withTailwind) {
             $deps[] = 'tailwindcss';
             $deps[] = '@tailwindcss/vite';
+            $deps[] = 'daisyui@latest';
         }
 
         return $deps;

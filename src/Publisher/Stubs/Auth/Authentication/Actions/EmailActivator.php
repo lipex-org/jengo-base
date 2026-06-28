@@ -75,7 +75,7 @@ class EmailActivator implements ActionInterface
         $email->clear();
 
         // Display the info page via Inertia
-        return Inertia::render('Auth/EmailActivateShow', ['user' => $user]);
+        return Inertia::render('auth/email-activate-show', ['user' => $user]);
     }
 
     /**
@@ -111,7 +111,7 @@ class EmailActivator implements ActionInterface
         if (!$authenticator->checkAction($identity, $postedToken)) {
             session()->setFlashdata('error', lang('Auth.invalidActivateToken'));
 
-            return Inertia::render('Auth/EmailActivateShow', ['user' => $user]);
+            return Inertia::render('auth/email-activate-show', ['user' => $user]);
         }
 
         $user = $authenticator->getUser();

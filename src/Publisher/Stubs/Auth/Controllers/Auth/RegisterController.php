@@ -56,7 +56,7 @@ class RegisterController extends BaseController
             return redirect()->route('auth-action-show');
         }
 
-        return Inertia::render('Auth/Register');
+        return Inertia::render('auth/register');
     }
 
     /**

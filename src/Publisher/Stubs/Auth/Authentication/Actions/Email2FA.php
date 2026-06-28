@@ -41,7 +41,7 @@ class Email2FA implements ActionInterface
 
         $this->createIdentity($user);
 
-        return Inertia::render('Auth/Email2FAShow', ['user' => $user]);
+        return Inertia::render('auth/email-2fa-show', ['user' => $user]);
     }
 
     /**
@@ -97,7 +97,7 @@ class Email2FA implements ActionInterface
         // Clear the email
         $emailObj->clear();
 
-        return Inertia::render('Auth/Email2FAVerify');
+        return Inertia::render('auth/email-2fa-verify');
     }
 
     /**
@@ -124,7 +124,7 @@ class Email2FA implements ActionInterface
         if (!$authenticator->checkAction($identity, $postedToken)) {
             session()->setFlashdata('error', lang('Auth.invalid2FAToken'));
 
-            return Inertia::render('Auth/Email2FAVerify');
+            return Inertia::render('auth/email-2fa-verify');
         }
 
         // Get our login redirect url
