@@ -53,7 +53,7 @@ class Arr implements JsonSerializable
     }
 
     /**
-     * Return null if the array is empty, otherwise return the array.
+     * Return null if the array is empty, otherwise return the array...
      *
      * @return array|null
      */
@@ -116,7 +116,7 @@ class Arr implements JsonSerializable
             return false;
         }
 
-        return ! array_is_list($this->data);
+        return !array_is_list($this->data);
     }
 
     /**
@@ -186,7 +186,7 @@ class Arr implements JsonSerializable
      */
     public function filter(?callable $callback = null, int $mode = 0): static
     {
-        $this->data = array_filter($this->data, $callback ?? fn ($v) => ! empty($v), $mode);
+        $this->data = array_filter($this->data, $callback ?? fn($v) => !empty($v), $mode);
 
         return $this;
     }
@@ -356,7 +356,7 @@ class Arr implements JsonSerializable
      */
     public function isNotEmpty(): bool
     {
-        return ! $this->isEmpty();
+        return !$this->isEmpty();
     }
 
     /**
@@ -427,7 +427,7 @@ class Arr implements JsonSerializable
      */
     public function unique(string|callable|null $by = null): static
     {
-        $seen   = [];
+        $seen = [];
         $result = [];
 
         foreach ($this->data as $item) {
@@ -435,8 +435,8 @@ class Arr implements JsonSerializable
                 ? (is_callable($by) ? $by($item) : ($item[$by] ?? null))
                 : $item;
 
-            if (! in_array($value, $seen, true)) {
-                $seen[]   = $value;
+            if (!in_array($value, $seen, true)) {
+                $seen[] = $value;
                 $result[] = $item;
             }
         }
@@ -454,7 +454,7 @@ class Arr implements JsonSerializable
      */
     public function pluck(string $key): static
     {
-        $this->data = array_map(fn ($item) => $item[$key] ?? null, $this->data);
+        $this->data = array_map(fn($item) => $item[$key] ?? null, $this->data);
 
         return $this;
     }
@@ -582,7 +582,7 @@ class Arr implements JsonSerializable
         $results = [];
 
         foreach ($this->data as $values) {
-            if (! is_array($values)) {
+            if (!is_array($values)) {
                 continue;
             }
 
