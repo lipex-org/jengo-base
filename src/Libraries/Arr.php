@@ -53,6 +53,16 @@ class Arr implements JsonSerializable
     }
 
     /**
+     * Return null if the array is empty, otherwise return the array.
+     *
+     * @return array|null
+     */
+    public function asNullWhenEmpty(): ?array
+    {
+        return $this->isEmpty() ? null : $this->data;
+    }
+
+    /**
      * Convert the array to its JSON representation.
      *
      * @param int $flags
