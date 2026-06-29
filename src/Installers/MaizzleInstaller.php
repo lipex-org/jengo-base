@@ -53,8 +53,35 @@ class MaizzleInstaller extends AbstractInstaller
         $this->run($pm->getAddCommand($dependencies, true));
 
         $this->updateViteConfig();
+        $this->registerDecorator();
 
         CLI::write('Maizzle installed successfully.', 'green');
+    }
+
+    private function registerDecorator(): void
+    {
+        $configPath = APPPATH . 'Config/View.php';
+        if (!file_exists($configPath)) {
+            return;
+        }
+
+        $content = file_get_contents($configPath);
+        $decoratorClass = '\\Jengo\\Base\\View\\Decorators\\EmailTemplateDecorator::class';
+
+        if (str_contains($content, 'EmailTemplateDecorator::class')) {
+            return;
+        }
+
+        // Inject inside $decorators array
+        $content = preg_replace(
+            '/(public\s+array\s+\$decorators\s*=\s*\[)/',
+            "$1\n        {$decoratorClass},",
+            $content,
+            1
+        );
+
+        $this->writeFile($configPath, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Registered EmailTemplateDecorator in Config/View.php.', 'dark_gray');
     }
 
     private function getDependencies(): array
