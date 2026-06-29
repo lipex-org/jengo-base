@@ -46,6 +46,21 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
             }
         }
 
+        // 1. Process Conditionals (innermost first)
+        $condPattern = '/%\s*if\s*([^%]+?)\s*%\s*([^%]*?)\s*(?:%\s*else\s*%\s*([^%]*?)\s*)?%\s*endif\s*%/s';
+        while (preg_match($condPattern, $html)) {
+            $html = preg_replace_callback($condPattern, function ($matches) use ($viewData) {
+                $conditionStr = trim($matches[1]);
+                $trueContent = $matches[2];
+                $falseContent = $matches[3] ?? '';
+
+                $isTruthy = self::evaluateCondition($conditionStr, $viewData);
+
+                return $isTruthy ? $trueContent : $falseContent;
+            }, $html);
+        }
+
+        // 2. Process Variables and Filters
         return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)(?:\s*\|\s*([^%]+?))?\s*%/', function ($matches) use ($viewData) {
             $key = trim($matches[1]);
 
@@ -70,6 +85,56 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
 
             return '';
         }, $html);
+    }
+
+    /**
+     * Evaluates a condition string to check if it's truthy, negated, or a comparison.
+     */
+    private static function evaluateCondition(string $conditionStr, array $viewData): bool
+    {
+        // 1. Check for comparisons: ==, !=, >=, <=, >, <
+        if (preg_match('/^([a-zA-Z0-9_\-\.]+)\s*(==|!=|>=|<=|>|<)\s*(.*?)$/', $conditionStr, $condMatches)) {
+            $key = trim($condMatches[1]);
+            $operator = $condMatches[2];
+            $rawValue = trim($condMatches[3]);
+
+            $leftVal = self::resolveValue($key, $viewData);
+
+            $rightVal = $rawValue;
+            if (str_starts_with($rightVal, "'") && str_ends_with($rightVal, "'")) {
+                $rightVal = substr($rightVal, 1, -1);
+            } elseif (str_starts_with($rightVal, '"') && str_ends_with($rightVal, '"')) {
+                $rightVal = substr($rightVal, 1, -1);
+            } elseif ($rightVal === 'true') {
+                $rightVal = true;
+            } elseif ($rightVal === 'false') {
+                $rightVal = false;
+            } elseif ($rightVal === 'null') {
+                $rightVal = null;
+            } elseif (is_numeric($rightVal)) {
+                $rightVal = $rightVal + 0;
+            }
+
+            return match ($operator) {
+                '==' => $leftVal == $rightVal,
+                '!=' => $leftVal != $rightVal,
+                '>'  => $leftVal > $rightVal,
+                '<'  => $leftVal < $rightVal,
+                '>=' => $leftVal >= $rightVal,
+                '<=' => $leftVal <= $rightVal,
+                default => false,
+            };
+        }
+
+        // 2. Simple boolean / truthy checks (supporting optional negation '!')
+        $isNegated = str_starts_with($conditionStr, '!');
+        $key = $isNegated ? substr($conditionStr, 1) : $conditionStr;
+        $key = trim($key);
+
+        $value = self::resolveValue($key, $viewData);
+        $isTruthy = !empty($value);
+
+        return $isNegated ? !$isTruthy : $isTruthy;
     }
 
     /**
