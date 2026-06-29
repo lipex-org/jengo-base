@@ -46,19 +46,69 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
             }
         }
 
-        return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)(?:\s*\|\s*([^%]+?))?\s*%/', function ($matches) use ($viewData) {
-            $key = trim($matches[1]);
+        // 1. Process Conditionals (innermost first)
+        $condPattern = '/%\s*if\s*([^%]+?)\s*%\s*([^%]*?)\s*(?:%\s*else\s*%\s*([^%]*?)\s*)?%\s*endif\s*%/s';
+        while (preg_match($condPattern, $html)) {
+            $html = preg_replace_callback($condPattern, function ($matches) use ($viewData) {
+                $conditionStr = trim($matches[1]);
+                $trueContent = $matches[2];
+                $falseContent = $matches[3] ?? '';
 
-            // Search using our robust object/array resolver
-            $value = self::resolveValue($key, $viewData);
+                $isTruthy = self::evaluateCondition($conditionStr, $viewData);
+
+                return $isTruthy ? $trueContent : $falseContent;
+            }, $html);
+        }
+
+        // 2. Process Variables, Function Calls, and Filters
+        $varPattern = '/%\s*([a-zA-Z0-9_\-\.]+)(?:\((.*?)\))?(?:\s*\|\s*([^%]+?))?\s*%/';
+        return preg_replace_callback($varPattern, function ($matches) use ($viewData) {
+            $keyOrFunc = trim($matches[1]);
+            $hasParams = isset($matches[2]);
+            $filterStr = $matches[3] ?? '';
+
+            $value = null;
+
+            if ($hasParams) {
+                // Function call (e.g. base_url() or base_url('path'))
+                if (function_exists($keyOrFunc)) {
+                    $args = [];
+                    $rawParams = trim($matches[2]);
+                    if ($rawParams !== '') {
+                        $rawArgs = str_getcsv($rawParams, ',', "'");
+                        foreach ($rawArgs as $arg) {
+                            $arg = trim($arg);
+                            if (str_starts_with($arg, '"') && str_ends_with($arg, '"')) {
+                                $arg = substr($arg, 1, -1);
+                            }
+                            if ($arg === 'true') {
+                                $arg = true;
+                            } elseif ($arg === 'false') {
+                                $arg = false;
+                            } elseif ($arg === 'null') {
+                                $arg = null;
+                            }
+                            $args[] = $arg;
+                        }
+                    }
+                    try {
+                        $value = call_user_func_array($keyOrFunc, $args);
+                    } catch (\Throwable $e) {
+                        $value = null;
+                    }
+                }
+            } else {
+                // Standard variable / path resolution
+                $value = self::resolveValue($keyOrFunc, $viewData);
+            }
 
             if ($value === null) {
                 return '';
             }
 
             // Apply filters if defined
-            if (isset($matches[2]) && trim($matches[2]) !== '') {
-                $filters = preg_split('/\|(?![^(]*\))/', $matches[2]);
+            if ($filterStr !== '') {
+                $filters = preg_split('/\|(?![^(]*\))/', $filterStr);
                 foreach ($filters as $filter) {
                     $value = self::applyFilter($value, $filter);
                 }
@@ -70,6 +120,56 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
 
             return '';
         }, $html);
+    }
+
+    /**
+     * Evaluates a condition string to check if it's truthy, negated, or a comparison.
+     */
+    private static function evaluateCondition(string $conditionStr, array $viewData): bool
+    {
+        // 1. Check for comparisons: ==, !=, >=, <=, >, <
+        if (preg_match('/^([a-zA-Z0-9_\-\.]+)\s*(==|!=|>=|<=|>|<)\s*(.*?)$/', $conditionStr, $condMatches)) {
+            $key = trim($condMatches[1]);
+            $operator = $condMatches[2];
+            $rawValue = trim($condMatches[3]);
+
+            $leftVal = self::resolveValue($key, $viewData);
+
+            $rightVal = $rawValue;
+            if (str_starts_with($rightVal, "'") && str_ends_with($rightVal, "'")) {
+                $rightVal = substr($rightVal, 1, -1);
+            } elseif (str_starts_with($rightVal, '"') && str_ends_with($rightVal, '"')) {
+                $rightVal = substr($rightVal, 1, -1);
+            } elseif ($rightVal === 'true') {
+                $rightVal = true;
+            } elseif ($rightVal === 'false') {
+                $rightVal = false;
+            } elseif ($rightVal === 'null') {
+                $rightVal = null;
+            } elseif (is_numeric($rightVal)) {
+                $rightVal = $rightVal + 0;
+            }
+
+            return match ($operator) {
+                '==' => $leftVal == $rightVal,
+                '!=' => $leftVal != $rightVal,
+                '>'  => $leftVal > $rightVal,
+                '<'  => $leftVal < $rightVal,
+                '>=' => $leftVal >= $rightVal,
+                '<=' => $leftVal <= $rightVal,
+                default => false,
+            };
+        }
+
+        // 2. Simple boolean / truthy checks (supporting optional negation '!')
+        $isNegated = str_starts_with($conditionStr, '!');
+        $key = $isNegated ? substr($conditionStr, 1) : $conditionStr;
+        $key = trim($key);
+
+        $value = self::resolveValue($key, $viewData);
+        $isTruthy = !empty($value);
+
+        return $isNegated ? !$isTruthy : $isTruthy;
     }
 
     /**
