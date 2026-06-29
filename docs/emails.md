@@ -19,6 +19,13 @@ Jengo templates use `%` delimiters for placeholders. It supports resolving neste
 <img src="% user.avatar %" />
 ```
 
+### Direct Function Calls
+You can execute global functions or CodeIgniter 4 helper functions (e.g. `base_url()`, `site_url()`) directly inside templates as the base value. Suffix the function name with parentheses and any arguments:
+```html
+<a href="% base_url('auth/activate') %">Activate Account</a>
+<p>Domain: % site_url()|strtolower %</p>
+```
+
 ---
 
 ## 2. Filters & Modifiers
