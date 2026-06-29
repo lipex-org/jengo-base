@@ -1,6 +1,6 @@
 {
     "name": "jengo/base",
-    "description": "Modern web development framework for CodeIgniter 4 with Vite, modules, unified setups, and automated CLI installer.",
+    "description": "Modern web development library for CodeIgniter 4 with Vite, modules, unified setups, and automated CLI installer.",
     "type": "library",
     "license": "MIT",
     "autoload": {
