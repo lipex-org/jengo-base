@@ -48,5 +48,31 @@ class CoreSetup extends AbstractSetup
                 file_put_contents($gitkeepPath, '');
             }
         }
+
+        // Register Modules namespace in composer.json
+        $composerJsonPath = ROOTPATH . 'composer.json';
+        if (file_exists($composerJsonPath)) {
+            $composerJson = json_decode(file_get_contents($composerJsonPath), true);
+            
+            if (!isset($composerJson['autoload'])) {
+                $composerJson['autoload'] = [];
+            }
+            if (!isset($composerJson['autoload']['psr-4'])) {
+                $composerJson['autoload']['psr-4'] = [];
+            }
+
+            if (!isset($composerJson['autoload']['psr-4']['Modules\\'])) {
+                $composerJson['autoload']['psr-4']['Modules\\'] = 'modules/';
+                file_put_contents(
+                    $composerJsonPath,
+                    json_encode($composerJson, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES)
+                );
+                
+                \CodeIgniter\CLI\CLI::write('  ' . \CodeIgniter\CLI\CLI::color('●', 'cyan') . ' Added Modules namespace to composer.json.', 'dark_gray');
+                
+                $composer = $this->composer();
+                $composer->run('composer dump-autoload', ROOTPATH);
+            }
+        }
     }
 }
