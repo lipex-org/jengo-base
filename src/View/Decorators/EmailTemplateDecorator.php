@@ -21,7 +21,6 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
             $ref = new \ReflectionClass($renderer);
             if ($ref->hasProperty('renderVars')) {
                 $prop = $ref->getProperty('renderVars');
-                $prop->setAccessible(true);
                 $renderVars = $prop->getValue($renderer);
                 $view = $renderVars['view'] ?? '';
                 if (str_contains($view, 'emails/')) {
@@ -37,7 +36,7 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
         }
 
         $viewData = $renderer->getData();
-        
+
         // Auto-load email helper if it exists to make it available for templates
         if (function_exists('helper')) {
             try {
@@ -49,7 +48,7 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
 
         return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)(?:\s*\|\s*([^%]+?))?\s*%/', function ($matches) use ($viewData) {
             $key = trim($matches[1]);
-            
+
             // Search using our robust object/array resolver
             $value = self::resolveValue($key, $viewData);
 
