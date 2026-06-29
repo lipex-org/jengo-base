@@ -60,20 +60,55 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
             }, $html);
         }
 
-        // 2. Process Variables and Filters
-        return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)(?:\s*\|\s*([^%]+?))?\s*%/', function ($matches) use ($viewData) {
-            $key = trim($matches[1]);
+        // 2. Process Variables, Function Calls, and Filters
+        $varPattern = '/%\s*([a-zA-Z0-9_\-\.]+)(?:\((.*?)\))?(?:\s*\|\s*([^%]+?))?\s*%/';
+        return preg_replace_callback($varPattern, function ($matches) use ($viewData) {
+            $keyOrFunc = trim($matches[1]);
+            $hasParams = isset($matches[2]);
+            $filterStr = $matches[3] ?? '';
 
-            // Search using our robust object/array resolver
-            $value = self::resolveValue($key, $viewData);
+            $value = null;
+
+            if ($hasParams) {
+                // Function call (e.g. base_url() or base_url('path'))
+                if (function_exists($keyOrFunc)) {
+                    $args = [];
+                    $rawParams = trim($matches[2]);
+                    if ($rawParams !== '') {
+                        $rawArgs = str_getcsv($rawParams, ',', "'");
+                        foreach ($rawArgs as $arg) {
+                            $arg = trim($arg);
+                            if (str_starts_with($arg, '"') && str_ends_with($arg, '"')) {
+                                $arg = substr($arg, 1, -1);
+                            }
+                            if ($arg === 'true') {
+                                $arg = true;
+                            } elseif ($arg === 'false') {
+                                $arg = false;
+                            } elseif ($arg === 'null') {
+                                $arg = null;
+                            }
+                            $args[] = $arg;
+                        }
+                    }
+                    try {
+                        $value = call_user_func_array($keyOrFunc, $args);
+                    } catch (\Throwable $e) {
+                        $value = null;
+                    }
+                }
+            } else {
+                // Standard variable / path resolution
+                $value = self::resolveValue($keyOrFunc, $viewData);
+            }
 
             if ($value === null) {
                 return '';
             }
 
             // Apply filters if defined
-            if (isset($matches[2]) && trim($matches[2]) !== '') {
-                $filters = preg_split('/\|(?![^(]*\))/', $matches[2]);
+            if ($filterStr !== '') {
+                $filters = preg_split('/\|(?![^(]*\))/', $filterStr);
                 foreach ($filters as $filter) {
                     $value = self::applyFilter($value, $filter);
                 }
