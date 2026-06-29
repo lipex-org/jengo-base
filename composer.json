@@ -1,6 +1,6 @@
 {
     "name": "jengo/base",
-    "description": "New Jengo based on the current knowledge I have of ci4",
+    "description": "Modern web development framework for CodeIgniter 4 with Vite, modules, unified setups, and automated CLI installer.",
     "type": "library",
     "license": "MIT",
     "autoload": {
