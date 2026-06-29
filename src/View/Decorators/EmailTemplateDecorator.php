@@ -37,13 +37,33 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
         }
 
         $viewData = $renderer->getData();
-        helper('array');
+        
+        // Auto-load email helper if it exists to make it available for templates
+        if (function_exists('helper')) {
+            try {
+                helper('email');
+            } catch (\Throwable $e) {
+                // Ignore if helper doesn't exist
+            }
+        }
 
-        return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)\s*%/', function ($matches) use ($viewData) {
+        return preg_replace_callback('/%\s*([a-zA-Z0-9_\-\.]+)(?:\s*\|\s*([^%]+?))?\s*%/', function ($matches) use ($viewData) {
             $key = trim($matches[1]);
             
-            // Search using CodeIgniter 4's array dot helper
-            $value = dot_array_search($key, $viewData);
+            // Search using our robust object/array resolver
+            $value = self::resolveValue($key, $viewData);
+
+            if ($value === null) {
+                return '';
+            }
+
+            // Apply filters if defined
+            if (isset($matches[2]) && trim($matches[2]) !== '') {
+                $filters = preg_split('/\|(?![^(]*\))/', $matches[2]);
+                foreach ($filters as $filter) {
+                    $value = self::applyFilter($value, $filter);
+                }
+            }
 
             if ($value !== null) {
                 return is_scalar($value) ? (string) $value : json_encode($value);
@@ -51,5 +71,77 @@ class EmailTemplateDecorator implements ViewDecoratorInterface
 
             return '';
         }, $html);
+    }
+
+    /**
+     * Navigates dot notation path supporting both nested arrays and object properties/methods.
+     */
+    private static function resolveValue(string $path, array $data)
+    {
+        $segments = explode('.', $path);
+        $current = $data;
+
+        foreach ($segments as $segment) {
+            if (is_array($current) && array_key_exists($segment, $current)) {
+                $current = $current[$segment];
+            } elseif (is_object($current)) {
+                if (isset($current->{$segment})) {
+                    $current = $current->{$segment};
+                } elseif (method_exists($current, $segment)) {
+                    $current = $current->{$segment}();
+                } elseif (method_exists($current, 'get' . ucfirst($segment))) {
+                    $current = $current->{'get' . ucfirst($segment)}();
+                } else {
+                    return null;
+                }
+            } else {
+                return null;
+            }
+        }
+
+        return $current;
+    }
+
+    /**
+     * Applies a single filter function, parsing any parameters.
+     */
+    private static function applyFilter($value, string $filterStr)
+    {
+        if (preg_match('/^([a-zA-Z0-9_]+)(?:\((.*)\))?$/', trim($filterStr), $matches)) {
+            $funcName = $matches[1];
+            if (!function_exists($funcName)) {
+                return $value;
+            }
+
+            $args = [];
+            if (isset($matches[2]) && trim($matches[2]) !== '') {
+                $rawArgs = str_getcsv($matches[2], ',', "'");
+                foreach ($rawArgs as $arg) {
+                    $arg = trim($arg);
+                    if (str_starts_with($arg, '"') && str_ends_with($arg, '"')) {
+                        $arg = substr($arg, 1, -1);
+                    }
+                    if ($arg === 'true') {
+                        $arg = true;
+                    } elseif ($arg === 'false') {
+                        $arg = false;
+                    } elseif ($arg === 'null') {
+                        $arg = null;
+                    }
+                    $args[] = $arg;
+                }
+            }
+
+            // Value is passed as the first parameter to the function
+            array_unshift($args, $value);
+
+            try {
+                return call_user_func_array($funcName, $args);
+            } catch (\Throwable $e) {
+                return $value;
+            }
+        }
+
+        return $value;
     }
 }
