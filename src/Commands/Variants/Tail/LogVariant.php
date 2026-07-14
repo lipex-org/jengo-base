@@ -62,21 +62,20 @@ class LogVariant extends AbstractVariant
      */
     protected function getOption(string $name): string|bool|null
     {
-        $val = CLI::getOption($name);
-        if ($val !== null) {
-            return (string) $val;
-        }
-
         $optionKey = $name;
-        if (array_key_exists($optionKey, $this->params)) {
-            return (string) $this->params[$optionKey];
+        foreach ($this->params as $index => $param) {
+            if ($index === $optionKey) {
+                return $param;
+            }
+
+            if ($param === $optionKey) {
+                return true;
+            }
         }
 
-        if (in_array($optionKey, $this->params, true)) {
-            return true;
-        }
+        $val = CLI::getOption($name);
 
-        return null;
+        return $val;
     }
 
     protected function resolveDate(): string
