@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
-use CodeIgniter\Test\CIUnitTestCase;
 use Jengo\Base\Installers\Libraries\InstallerRunner;
 use Jengo\Base\Installers\Libraries\InstallerTracker;
+use Tests\Support\CommandTestCase;
 use Tests\Support\Installers\FakeInstaller;
 
-final class InstallerTest extends CIUnitTestCase
+final class InstallerTest extends CommandTestCase
 {
     public function testPublishCopiesFiles()
     {

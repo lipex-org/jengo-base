@@ -7,6 +7,7 @@ use CodeIgniter\HTTP\ResponseInterface;
 use Jengo\Base\Facades\ModelFacade;
 use Jengo\Base\Exceptions\InterruptExecutionException;
 use Jengo\Base\Events\AbstractEvent;
+use Jengo\Base\Validation\FormHandler;
 
 if (!function_exists('model_of')) {
     /**
@@ -48,7 +49,7 @@ if (!function_exists('register_events')) {
                 throw new InvalidArgumentException("Event must be a class name string");
             }
 
-            if(!class_exists($event)) {
+            if (!class_exists($event)) {
                 throw new InvalidArgumentException("Event must be a valid class");
             }
 
@@ -106,42 +107,64 @@ if (!function_exists('page')) {
     }
 }
 
-if(!function_exists('isProduction')) {
+if (!function_exists('isProduction')) {
     /**
      * Checks if ENVIRONMENT is production
      * @return bool
      */
-    function isProduction() : bool {
+    function isProduction(): bool
+    {
         return ENVIRONMENT === 'production';
     }
 }
 
-if(!function_exists('isDevelopment')) {
+if (!function_exists('isDevelopment')) {
     /**
      * Checks if ENVIRONMENT is development
      * @return bool
      */
-    function isDevelopment() : bool {
+    function isDevelopment(): bool
+    {
         return ENVIRONMENT === 'development';
     }
 }
 
-if(!function_exists('isStaging')) {
+if (!function_exists('isStaging')) {
     /**
      * Checks if ENVIRONMENT is in staging
      * @return bool
      */
-    function isStaging() : bool {
+    function isStaging(): bool
+    {
         return ENVIRONMENT === 'staging';
     }
 }
 
-if(!function_exists('isTesting')) {
+if (!function_exists('isTesting')) {
     /**
      * Checks if ENVIRONMENT is in testing
      * @return bool
      */
-    function isTesting() : bool {
+    function isTesting(): bool
+    {
         return ENVIRONMENT === 'testing';
+    }
+}
+
+if (!function_exists('form')) {
+    /**
+     * Retrieve the last validated FormHandler instance, or a new instance of a specific class.
+     *
+     * @template T of FormHandler
+     * @param class-string<T>|null $handlerClass
+     * @return T|FormHandler|null
+     */
+    function form(?string $handlerClass = null): ?FormHandler
+    {
+        if ($handlerClass === null) {
+            return FormHandler::getLastInstance();
+        }
+
+        return new $handlerClass();
     }
 }

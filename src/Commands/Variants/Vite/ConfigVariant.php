@@ -6,7 +6,7 @@ namespace Jengo\Base\Commands\Variants\Vite;
 
 use CodeIgniter\CLI\CLI;
 use Jengo\Base\Commands\Core\AbstractVariant;
-use Jengo\Base\Vite\Config\ViteConfig;
+use Jengo\Base\Config\Vite as ViteConfig;
 use Jengo\Base\Vite\Repositories\ViteRepository;
 use Jengo\Base\Vite\ViteEntryPointScanner;
 
@@ -25,12 +25,18 @@ class ConfigVariant extends AbstractVariant
     public function run(array $params): void
     {
         $scanner = new ViteEntryPointScanner();
-        $repo    = new ViteRepository();
+        $repo = new ViteRepository();
 
-        $config = new ViteConfig();
+        $config = config('Vite') ?? new ViteConfig();
 
-        $config->entrypoints = $scanner->scan();
-        $config->searchPaths = $repo->loadSearchPaths();
+        $config->entrypoints = [
+            ...$config->entrypoints,
+            ...$scanner->scan()
+        ];
+        $config->searchPaths = [
+            ...$config->searchPaths,
+            ...$repo->loadSearchPaths(),
+        ];
 
         $repo->cacheEntrypoints($config->entrypoints);
 

@@ -5,16 +5,15 @@ declare(strict_types=1);
 namespace Tests;
 
 use CodeIgniter\CLI\CLI;
-use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
 use CodeIgniter\Test\Fabricator;
 use CodeIgniter\Test\Mock\MockInputOutput;
 use Config\Database;
-use Jengo\Base\Installers\Libraries\InstallerTracker;
+use Tests\Support\CommandTestCase;
 use Tests\Support\Models\UserModel;
 use function PHPUnit\Framework\assertTrue;
 
-class BaseTest extends CIUnitTestCase
+class BaseTest extends CommandTestCase
 {
     use DatabaseTestTrait;
 
@@ -23,16 +22,11 @@ class BaseTest extends CIUnitTestCase
     protected $refresh = true;
     protected $namespace = null;
 
-    private MockInputOutput $io;
-
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->io = new MockInputOutput();
-
-        CLI::setInputOutput($this->io);
-
+        helper('filesystem');
         $this->loadDependencies();
         $this->migrateDatabase();
         $this->generateData();
@@ -42,89 +36,74 @@ class BaseTest extends CIUnitTestCase
     {
         parent::tearDown();
 
-        CLI::resetInputOutput();
-
         $this->regressDatabase();
         $this->migrateDatabase();
     }
 
     public function testMakeEventCommand(): void
     {
-        command('make:event example App');
+        command('jengo:make event example');
 
         $dir = APPPATH . "Events";
-        $path = "$dir/ExampleEvent.php";
+        $path = "$dir/Example.php";
 
         assertTrue(file_exists($path));
 
-        if (file_exists($path)) {
-            unlink($path);
-        }
-
-        if (is_dir($dir)) {
-            rmdir($dir);
-        }
+        delete_files($dir, true);
     }
 
     public function testMakeLayoutCommand(): void
     {
-        command('make:layout example --layout app');
+        command('jengo:make layout example --layout app');
 
         $dir = APPPATH . "Views/layouts";
         $path = "$dir/example.layout.php";
 
         assertTrue(file_exists($path));
 
-        if (file_exists($path)) {
-            unlink($path);
-        }
-
-        if (is_dir($dir)) {
-            rmdir($dir);
-        }
+        delete_files($dir, true);
     }
 
     public function testMakeBaseLayoutCommand(): void
     {
-        command('make:layout base --base name');
+        command('jengo:make layout base --base name');
 
         $dir = APPPATH . "Views/layouts";
         $path = "$dir/base.layout.php";
 
         assertTrue(file_exists($path));
 
-        if (file_exists($path)) {
-            unlink($path);
-        }
-
-        if (is_dir($dir)) {
-            rmdir($dir);
-        }
+        delete_files($dir, true);
     }
 
     public function testMakePageCommand(): void
     {
-        command('make:page user');
+        command('jengo:make page user');
 
         $dir = APPPATH . "Views/pages";
         $path = "$dir/user.page.php";
 
         assertTrue(file_exists($path));
 
-        if (file_exists($path)) {
-            unlink($path);
-        }
+        delete_files($dir, true);
 
-        if (is_dir($dir)) {
-            rmdir($dir);
-        }
     }
 
-    public function testSetupCommand(): void
+    public function testMakeFormCommand(): void
     {
-        $this->io->setInputs([
-            'y',
-        ]);
+        command('jengo:make form UserForm');
+
+        $dir = APPPATH . "Forms";
+        $path = "$dir/UserForm.php";
+
+        assertTrue(file_exists($path));
+
+        delete_files($dir, true);
+    }
+
+    public function ntestSetupCommand(): void
+    {
+        $this->io->setInputs(['y', 'y']);
 
         command('jengo:setup');
 

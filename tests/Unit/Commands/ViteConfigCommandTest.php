@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Commands;
 
 use CodeIgniter\Config\Factories;
-use Jengo\Base\Vite\Config\ViteConfig;
+use Jengo\Base\Config\Vite as ViteConfig;
 use Tests\Support\CommandTestCase;
 
 final class ViteConfigCOmmandTest extends CommandTestCase
@@ -22,18 +22,22 @@ final class ViteConfigCOmmandTest extends CommandTestCase
             'main.ts'
         ];
 
-        Factories::injectMock('config', ViteConfig::class, $config);
+        Factories::injectMock('config', 'Vite', $config);
     }
 
     public function tearDown(): void
     {
         parent::tearDown();
-
-        var_dump($this->output);
     }
 
     public function test(): void
     {
-        command('vite:config');
+        command('jengo:vite config');
+
+        $output = $this->io->getOutput();
+
+        $this->assertStringContainsString('app.css', $output);
+        $this->assertStringContainsString('user\\/book.ts', $output);
+        $this->assertStringContainsString('main.ts', $output);
     }
 }

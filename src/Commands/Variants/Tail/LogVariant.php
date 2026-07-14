@@ -23,6 +23,11 @@ class LogVariant extends AbstractVariant
 
     protected bool $once = false;
 
+    /**
+     * Stored parameters/options for option retrieval.
+     */
+    protected array $params = [];
+
     public static function name(): string
     {
         return 'log';
@@ -41,22 +46,46 @@ class LogVariant extends AbstractVariant
             '--yesterday' => 'Target yesterday\'s log file',
             '--search' => 'Search for a specific keyword in log messages',
             '--lines' => 'Number of lines to show initially (default: 20)',
+            '--time' => 'Time to tail the log file for (e.g., 30s, 5m, 1h)',
         ];
     }
 
     public function run(array $params): void
     {
+        $this->params = $params;
         $date = $this->resolveDate();
         $this->tail($date);
     }
 
+    /**
+     * Helper to get options from CLI or passed parameters (useful for tests).
+     */
+    protected function getOption(string $name): string|bool|null
+    {
+        $val = CLI::getOption($name);
+        if ($val !== null) {
+            return (string) $val;
+        }
+
+        $optionKey = $name;
+        if (array_key_exists($optionKey, $this->params)) {
+            return (string) $this->params[$optionKey];
+        }
+
+        if (in_array($optionKey, $this->params, true)) {
+            return true;
+        }
+
+        return null;
+    }
+
     protected function resolveDate(): string
     {
-        if (CLI::getOption('yesterday')) {
+        if ($this->getOption('yesterday')) {
             return Time::yesterday()->format('Y-m-d');
         }
 
-        if ($date = CLI::getOption('date')) {
+        if ($date = $this->getOption('date')) {
             return (string) $date;
         }
 
@@ -65,11 +94,26 @@ class LogVariant extends AbstractVariant
 
     protected function tail(string $date): void
     {
-        $levels = CLI::getOption('level') ? explode(',', strtolower((string) CLI::getOption('level'))) : [];
-        $search = (string) (CLI::getOption('search') ?? '');
-        $lines = (int) (CLI::getOption('lines') ?? 20);
+        $levels = $this->getOption('level') ? explode(',', strtolower((string) $this->getOption('level'))) : [];
+        $search = (string) ($this->getOption('search') ?? '');
+        $lines = (int) ($this->getOption('lines') ?? 20);
 
-        $autoSwitch = !CLI::getOption('date') && !CLI::getOption('yesterday');
+        $timeOpt = $this->getOption('time');
+
+        $duration = 0;
+        if ($timeOpt !== null) {
+            if (preg_match('/^(\d+)([smh]?)$/i', $timeOpt, $matches)) {
+                $value = (int) $matches[1];
+                $unit = strtolower($matches[2]);
+                $duration = match ($unit) {
+                    'm' => $value * 60,
+                    'h' => $value * 3600,
+                    default => $value,
+                };
+            }
+        }
+
+        $autoSwitch = !$this->getOption('date') && !$this->getOption('yesterday');
         $currentDate = $date;
         $filePath = $this->getLogPath($currentDate);
 
@@ -92,8 +136,15 @@ class LogVariant extends AbstractVariant
         fseek($handle, 0, SEEK_END);
         $lastPos = ftell($handle);
 
+        $startTime = time();
+
         while (true) {
             if ($this->once && $lastPos > 0) {
+                break;
+            }
+
+            if ($duration > 0 && (time() - $startTime) >= $duration) {
+                CLI::write("Tailing completed after {$timeOpt}.", 'green');
                 break;
             }
 

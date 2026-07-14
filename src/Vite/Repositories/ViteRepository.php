@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Vite\Repositories;
 
-use Jengo\Base\Vite\Config\ViteConfig;
+use Jengo\Base\Config\Vite as ViteConfig;
 use Jengo\Base\Vite\ViteEntryPointScanner;
 
 class ViteRepository
@@ -14,7 +14,7 @@ class ViteRepository
     public function __construct()
     {
         helper('Jengo\Base\Helpers\jengo');
-        $this->config = config('ViteConfig');
+        $this->config = config('Vite');
     }
 
     protected string $cachePath = ROOTPATH . '.jengo/vite_entrypoints.json';

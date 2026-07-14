@@ -4,42 +4,30 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Commands;
 
-use CodeIgniter\CLI\CLI;
-use CodeIgniter\Test\CIUnitTestCase;
-use CodeIgniter\Test\Mock\MockInputOutput;
 use Jengo\Base\Installers\Libraries\InstallerTracker;
+use Tests\Support\CommandTestCase;
 
-final class InstallCommandTest extends CIUnitTestCase
+final class InstallCommandTest extends CommandTestCase
 {
-    private MockInputOutput $io;
 
     protected function setUp(): void
     {
         parent::setUp();
 
-        $this->io = new MockInputOutput();
-
         $this->cleanFileSystem();
-
-        CLI::setInputOutput($this->io);
     }
 
     protected function tearDown(): void
     {
         parent::tearDown();
-
-        $out = $this->io->getOutput();
-
-        CLI::resetInputOutput();
-
         $this->cleanFileSystem();
-
-        var_dump($out);
     }
     public function testCommand(): void
     {
         $this->io->setInputs([
-            'y'
+            'n',
+            'pnpm',
+            'n'
         ]);
 
         command('jengo:install vite');
@@ -61,15 +49,12 @@ final class InstallCommandTest extends CIUnitTestCase
 
         helper('filesystem');
 
-        if (is_dir($configDir)) {
-            delete_files($configDir);
-
-            rmdir($configDir);
-        }
+        delete_files($configDir, true);
+        delete_files("{$baseDir}node_modules", true);
 
         foreach ($files as $file) {
             $path = "$baseDir$file";
-            if(file_exists($path)) {
+            if (file_exists($path)) {
                 unlink($path);
             }
         }

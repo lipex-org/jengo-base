@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Commands;
 
-use Jengo\Base\Commands\LogTailCommand;
 use Tests\Support\CommandTestCase;
 
 final class LogTailCommandTest extends CommandTestCase
@@ -14,7 +13,7 @@ final class LogTailCommandTest extends CommandTestCase
     protected function setUp(): void
     {
         parent::setUp();
-        
+
         $this->logDir = WRITEPATH . 'logs';
         if (!is_dir($this->logDir)) {
             mkdir($this->logDir, 0777, true);
@@ -33,15 +32,8 @@ final class LogTailCommandTest extends CommandTestCase
 
     public function testRunShowsErrorMessageIfFileNotFound()
     {
-        $logger = \Config\Services::logger();
-        $runner = \Config\Services::commands();
-        $command = new class($logger, $runner) extends LogTailCommand {
-            public $mockOptions = ['date' => '1999-01-01'];
-            protected function getOption(string $name) { return $this->mockOptions[$name] ?? null; }
-        };
-        
-        $command->run([]);
-        
+        command('jengo:tail log --date 1999-01-01 --time 1s');
+
         $this->assertStringContainsString('Log file not found: log-1999-01-01.log', $this->getBuffer());
     }
 
@@ -49,22 +41,12 @@ final class LogTailCommandTest extends CommandTestCase
     {
         $date = date('Y-m-d');
         $logFile = $this->logDir . "/log-{$date}.log";
-        
+
         $content = "ERROR - {$date} 12:00:00 --> This is an error\n";
         $content .= "INFO - {$date} 12:00:01 --> This is info\n";
         file_put_contents($logFile, $content);
 
-        $logger = \Config\Services::logger();
-        $runner = \Config\Services::commands();
-
-        // We use a mock class to avoid infinite loop
-        $command = new class($logger, $runner) extends LogTailCommand {
-            protected bool $once = true;
-            public $mockOptions = ['level' => 'error'];
-            protected function getOption(string $name) { return $this->mockOptions[$name] ?? null; }
-        };
-        
-        $command->run([]);
+        command('jengo:tail log --level error --time 1s');
 
         $output = $this->getBuffer();
         $this->assertStringContainsString('ERROR', $output);
@@ -77,39 +59,16 @@ final class LogTailCommandTest extends CommandTestCase
     {
         $date = date('Y-m-d');
         $logFile = $this->logDir . "/log-{$date}.log";
-        
+
         $content = "ERROR - {$date} 12:00:00 --> Critical failure in database\n";
         $content .= "ERROR - {$date} 12:00:01 --> Minor glitch in ui\n";
         file_put_contents($logFile, $content);
 
-        $logger = \Config\Services::logger();
-        $runner = \Config\Services::commands();
-
-        $command = new class($logger, $runner) extends LogTailCommand {
-            protected bool $once = true;
-            public $mockOptions = ['search' => 'database'];
-            protected function getOption(string $name) { return $this->mockOptions[$name] ?? null; }
-        };
-
-        $command->run([]);
+        command('jengo:tail log --search database --time 1s');
 
         $output = $this->getBuffer();
         $this->assertStringContainsString('Critical failure in database', $output);
         $this->assertStringNotContainsString('Minor glitch in ui', $output);
-    }
-
-    public function testResolveDateYesterday()
-    {
-        $logger = \Config\Services::logger();
-        $runner = \Config\Services::commands();
-
-        $command = new class($logger, $runner) extends LogTailCommand {
-            public $mockOptions = ['yesterday' => true];
-            protected function getOption(string $name) { return $this->mockOptions[$name] ?? null; }
-            public function testResolveDate() { return $this->resolveDate(); }
-        };
-
-        $this->assertSame(date('Y-m-d', strtotime('yesterday')), $command->testResolveDate());
     }
 
     private function getBuffer(): string

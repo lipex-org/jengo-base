@@ -2,14 +2,14 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Vite\Config;
+namespace Jengo\Base\Config;
 
 use CodeIgniter\Config\BaseConfig;
 
 /**
  * Tracks entrypoints and core Vite settings.
  */
-class ViteConfig extends BaseConfig
+class Vite extends BaseConfig
 {
     public array $entrypoints = [];
 

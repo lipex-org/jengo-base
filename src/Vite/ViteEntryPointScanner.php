@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Vite;
 
-use Jengo\Base\Vite\Config\ViteConfig;
 use Jengo\Base\Vite\Repositories\ViteRepository;
 
 class ViteEntryPointScanner
@@ -18,7 +17,7 @@ class ViteEntryPointScanner
             if (!is_dir($path)) {
                 continue;
             }
-            
+
             $directory = new \RecursiveDirectoryIterator($path);
             $iterator = new \RecursiveIteratorIterator($directory);
 

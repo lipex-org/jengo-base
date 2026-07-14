@@ -1,0 +1,122 @@
+{
+  "name": "jengo/base",
+  "description": "Core package of the Jengo framework. Integrates Vite, static Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, and fluent array/string wrappers.",
+  "models": [
+    {
+      "class": "Jengo\\Base\\Entities\\BaseEntity",
+      "description": "Entity representing standard schemas. Provides JsonSerializable control via visible/hidden arrays, and Sqids-based integer ID obfuscation.",
+      "properties": {
+        "visible": "array of property names allowed during JSON serialization",
+        "hidden": "array of property names stripped during JSON serialization",
+        "obfuscatedFields": "array of integer ID properties (e.g. ['id', 'user_id']) to encode/decode using Sqids"
+      },
+      "usage": "class UserEntity extends BaseEntity { protected array $obfuscatedFields = ['id']; protected array $hidden = ['password']; }"
+    }
+  ],
+  "facades": [
+    {
+      "class": "Jengo\\Base\\Facades\\ModelFacade",
+      "description": "Allows Laravel-like static querying (where, find, first, etc.) over standard CI4 models.",
+      "helper": "model_of(string $modelClass)",
+      "usage": "$user = model_of(UserModel::class)::where('email', $email)->first();"
+    }
+  ],
+  "validation": [
+    {
+      "class": "Jengo\\Base\\Validation\\FormHandler",
+      "description": "Abstract class to define validation rules, custom messages, handle redirect/JSON responses, and fetch validated data.",
+      "methods": {
+        "validate": "validate(?RequestInterface $request = null): bool (clears validation cache and runs validation)",
+        "validated": "validated(): array (returns only fields matching the defined rules)",
+        "getErrors": "getErrors(): array (returns validation errors)"
+      }
+    },
+    {
+      "attribute": "Jengo\\Base\\Attributes\\Validate",
+      "description": "Controller class or method Attribute targeting pre-dispatch validation handling using a FormHandler.",
+      "usage": "#[Validate(StoreUserForm::class)]\npublic function store() { $data = form()->validated(); }"
+    }
+  ],
+  "attributes": [
+    {
+      "class": "Jengo\\Base\\Attributes\\API",
+      "description": "Controller class or method Attribute that wraps output into a standardized JSON response envelope containing status, message, data, or errors."
+    }
+  ],
+  "events": [
+    {
+      "class": "Jengo\\Base\\Events\\AbstractEvent",
+      "description": "Base event structure. Enforces event name constant (NAME) and handler method.",
+      "helpers": {
+        "register_events": "register_events(...$eventClasses): void",
+        "trigger_event": "trigger_event(string $eventClass, ...$args): void"
+      },
+      "usage": "class OrderCreated extends AbstractEvent { public const NAME = 'order.created'; public static function event(...$args): void { /* handle event */ } }\ntrigger_event(OrderCreated::class, $order);"
+    }
+  ],
+  "libraries": [
+    {
+      "class": "Jengo\\Base\\Libraries\\Arr",
+      "description": "Fluent wrapper for array manipulation.",
+      "helper": "arr(array|Entity $array): Arr",
+      "usage": "$names = arr($users)->map(fn($u) => $u['name'])->toArray();"
+    },
+    {
+      "class": "Jengo\\Base\\Libraries\\Str",
+      "description": "Fluent wrapper for string manipulation, slugging, random generators, casing, and search.",
+      "helper": "str(string $value): Str",
+      "usage": "$slug = str('My Title')->kebab()->toString();"
+    }
+  ],
+  "helpers": [
+    {
+      "name": "form",
+      "signature": "form(?string $handlerClass = null): ?FormHandler",
+      "description": "Retrieves the active/last validated FormHandler instance, or instantiates a new handler."
+    },
+    {
+      "name": "page",
+      "signature": "page(string $name, array $data = [], array $options = []): string",
+      "description": "Helper to load page views from Views/pages/ directory."
+    },
+    {
+      "name": "vite_tags",
+      "signature": "vite_tags(): string",
+      "description": "Outputs Vite entry point development/production script and stylesheet links."
+    }
+  ],
+  "commands": [
+    {
+      "name": "jengo:make form",
+      "description": "Generate a FormHandler class."
+    },
+    {
+      "name": "jengo:make page",
+      "description": "Generate a new layout or page view."
+    },
+    {
+      "name": "jengo:make action",
+      "description": "Generate an Action/Service execution class."
+    },
+    {
+      "name": "jengo:make repo",
+      "description": "Generate a repository class mapped to a Model."
+    },
+    {
+      "name": "jengo:make event",
+      "description": "Generate an Event and Listener."
+    },
+    {
+      "name": "jengo:ai discover",
+      "description": "Compiles Jengo package capabilities for AI coding assistants."
+    },
+    {
+      "name": "jengo:setup",
+      "description": "Configures views, layouts, pages, and partial folders."
+    },
+    {
+      "name": "jengo:health",
+      "description": "Runs application health status checks."
+    }
+  ]
+}
