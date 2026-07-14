@@ -114,7 +114,7 @@ class DiscoverVariant implements CommandVariantInterface
         file_put_contents($outputJsonPath, json_encode($compiled, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         CLI::write("Compiled manifest saved to: [{$outputJsonPath}]", 'green');
 
-        // 4. Generate rules.md
+        // 4. Generate rules.md (Dynamic Documentation Engine)
         $markdown = "# Jengo AI Coding Rules & Context\n";
         $markdown .= "> Generated on " . date('Y-m-d H:i:s') . "\n\n";
         $markdown .= "This document provides context for AI assistants working on this Jengo project.\n\n";
@@ -127,84 +127,79 @@ class DiscoverVariant implements CommandVariantInterface
                     $markdown .= "*Description:* {$data['description']}\n\n";
                 }
 
-                if (!empty($data['helpers']) && is_array($data['helpers'])) {
-                    $markdown .= "#### Helper Functions\n";
-                    foreach ($data['helpers'] as $helper) {
-                        $name = $helper['name'] ?? 'unknown';
-                        $sig = $helper['signature'] ?? '';
-                        $desc = $helper['description'] ?? '';
-                        $markdown .= "- **`{$name}`**" . ($sig ? ": `{$sig}`" : "") . ($desc ? " — {$desc}" : "") . "\n";
+                // Compile all other topics dynamically
+                foreach ($data as $topicName => $items) {
+                    if (in_array($topicName, ['name', 'description', 'usage'], true)) {
+                        continue;
                     }
-                    $markdown .= "\n";
-                }
 
-                if (!empty($data['facades']) && is_array($data['facades'])) {
-                    $markdown .= "#### Facades & Static Helpers\n";
-                    foreach ($data['facades'] as $facade) {
-                        $class = $facade['class'] ?? 'unknown';
-                        $desc = $facade['description'] ?? '';
-                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
-                        if (!empty($facade['methods']) && is_array($facade['methods'])) {
-                            foreach ($facade['methods'] as $methodName => $methodDesc) {
-                                $markdown .= "  - `{$methodName}`: {$methodDesc}\n";
+                    if (is_array($items)) {
+                        $title = ucwords(str_replace(['_', '-'], ' ', $topicName));
+                        $markdown .= "#### {$title}\n";
+
+                        foreach ($items as $item) {
+                            if (is_string($item)) {
+                                $markdown .= "- {$item}\n";
+                                continue;
+                            }
+
+                            if (!is_array($item)) {
+                                continue;
+                            }
+
+                            $identifier = $item['name'] ?? $item['class'] ?? $item['signature'] ?? null;
+                            if ($identifier) {
+                                $markdown .= "- **`{$identifier}`**";
+
+                                $sig = $item['signature'] ?? null;
+                                if ($sig && $identifier !== $sig) {
+                                    $markdown .= ": `{$sig}`";
+                                }
+
+                                $desc = $item['description'] ?? null;
+                                if ($desc) {
+                                    $markdown .= " — {$desc}";
+                                }
+                                $markdown .= "\n";
+                            } else {
+                                $markdown .= "- Item:\n";
+                            }
+
+                            // Dynamic property mapping
+                            foreach ($item as $propKey => $propVal) {
+                                if (in_array($propKey, ['name', 'class', 'signature', 'description'], true)) {
+                                    continue;
+                                }
+
+                                if (empty($propVal)) {
+                                    continue;
+                                }
+
+                                if (is_array($propVal)) {
+                                    if (self::isAssociative($propVal)) {
+                                        foreach ($propVal as $k => $v) {
+                                            $markdown .= "  - `{$k}`: {$v}\n";
+                                        }
+                                    } else {
+                                        $markdown .= "  - " . ucwords($propKey) . ": `" . implode('`, `', $propVal) . "`\n";
+                                    }
+                                } else {
+                                    $markdown .= "  - " . ucwords($propKey) . ": `{$propVal}`\n";
+                                }
                             }
                         }
+                        $markdown .= "\n";
                     }
-                    $markdown .= "\n";
                 }
 
-                if (!empty($data['classes']) && is_array($data['classes'])) {
-                    $markdown .= "#### Core Classes\n";
-                    foreach ($data['classes'] as $cls) {
-                        $class = $cls['class'] ?? 'unknown';
-                        $desc = $cls['description'] ?? '';
-                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
-                        if (!empty($cls['methods']) && is_array($cls['methods'])) {
-                            foreach ($cls['methods'] as $methodName => $methodDesc) {
-                                $markdown .= "  - `{$methodName}`: {$methodDesc}\n";
-                            }
-                        }
-                    }
-                    $markdown .= "\n";
-                }
-
-                if (!empty($data['middleware']) && is_array($data['middleware'])) {
-                    $markdown .= "#### Filters & Middleware\n";
-                    foreach ($data['middleware'] as $mw) {
-                        $class = $mw['class'] ?? 'unknown';
-                        $desc = $mw['description'] ?? '';
-                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
-                    }
-                    $markdown .= "\n";
-                }
-
-                if (!empty($data['models']) && is_array($data['models'])) {
-                    $markdown .= "#### Models & Entities\n";
-                    foreach ($data['models'] as $model) {
-                        $class = $model['class'] ?? 'unknown';
-                        $desc = $model['description'] ?? '';
-                        $markdown .= "- **`{$class}`**: {$desc}\n";
-                        if (!empty($model['fields']) && is_array($model['fields'])) {
-                            $markdown .= "  - Fields: `" . implode('`, `', $model['fields']) . "`\n";
-                        }
-                    }
-                    $markdown .= "\n";
-                }
-
-                if (!empty($data['events']) && is_array($data['events'])) {
-                    $markdown .= "#### Dispatched Events\n";
-                    foreach ($data['events'] as $event) {
-                        $name = $event['name'] ?? 'unknown';
-                        $desc = $event['description'] ?? '';
-                        $markdown .= "- **`{$name}`**: {$desc}\n";
-                    }
-                    $markdown .= "\n";
-                }
-
-                if (!empty($data['usage']) && is_array($data['usage'])) {
+                if (!empty($data['usage'])) {
                     $markdown .= "#### Usage Examples\n";
-                    foreach ($data['usage'] as $key => $example) {
-                        $markdown .= "- **{$key}**:\n  ```php\n  {$example}\n  ```\n";
+                    if (is_array($data['usage'])) {
+                        foreach ($data['usage'] as $key => $example) {
+                            $markdown .= "- **{$key}**:\n  ```php\n  {$example}\n  ```\n";
+                        }
+                    } else {
+                        $markdown .= "```php\n" . $data['usage'] . "\n```\n";
                     }
                     $markdown .= "\n";
                 }
@@ -239,24 +234,69 @@ class DiscoverVariant implements CommandVariantInterface
             return false;
         }
 
-        // Check models if present
-        if (isset($content['models']) && is_array($content['models'])) {
-            foreach ($content['models'] as $model) {
-                if (empty($model['class']) || !is_string($model['class'])) {
-                    return false;
-                }
-            }
-        }
+        $allowedItemKeys = [
+            'name',
+            'class',
+            'signature',
+            'description',
+            'usage',
+            'arguments',
+            'options',
+            'methods',
+            'fields',
+            'target',
+            'relation',
+            'foreignKey',
+            'from',
+            'to',
+            'select',
+            'many',
+            'helpers',
+            'facades',
+            'middleware',
+            'commands',
+            'packages'
+        ];
 
-        // Check events if present
-        if (isset($content['events']) && is_array($content['events'])) {
-            foreach ($content['events'] as $event) {
-                if (empty($event['name']) || !is_string($event['name'])) {
+        foreach ($content as $key => $value) {
+            if ($key === 'name' || $key === 'description') {
+                if (!is_string($value)) {
                     return false;
                 }
+                continue;
+            }
+
+            if ($key === 'usage') {
+                if (!is_string($value) && !is_array($value)) {
+                    return false;
+                }
+                continue;
+            }
+
+            if (is_array($value)) {
+                foreach ($value as $item) {
+                    if (is_array($item)) {
+                        foreach ($item as $itemKey => $itemVal) {
+                            if (!in_array($itemKey, $allowedItemKeys, true)) {
+                                CLI::write("Manifest validation warning: key '{$itemKey}' in topic '{$key}' is not recognized.", 'yellow');
+                                return false;
+                            }
+                        }
+                    }
+                }
+            } else {
+                return false;
             }
         }
 
         return true;
+    }
+
+    private static function isAssociative(array $arr): bool
+    {
+        if ([] === $arr) {
+            return false;
+        }
+        return array_keys($arr) !== range(0, count($arr) - 1);
     }
 }
