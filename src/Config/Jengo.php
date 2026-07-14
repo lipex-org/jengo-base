@@ -21,4 +21,12 @@ class Jengo extends BaseConfig
         BlueprintInstaller::class,
         MaizzleInstaller::class,
     ];
+
+    /**
+     * List of target IDEs/Agents to generate rules for.
+     * Supported: 'antigravity', 'cursor', 'cline', 'copilot'
+     *
+     * @var string[]
+     */
+    public array $aiTargets = [];
 }

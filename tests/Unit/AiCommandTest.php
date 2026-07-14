@@ -80,6 +80,16 @@ final class AiCommandTest extends CommandTestCase
             }
         }
 
+        $skillDir = ROOTPATH . '.agents/skills/jengo';
+        if (is_dir($skillDir)) {
+            if (file_exists($skillDir . '/SKILL.md')) {
+                unlink($skillDir . '/SKILL.md');
+            }
+            @rmdir($skillDir);
+            @rmdir(dirname($skillDir));
+            @rmdir(dirname(dirname($skillDir)));
+        }
+
         parent::tearDown();
     }
 
@@ -100,5 +110,26 @@ final class AiCommandTest extends CommandTestCase
         $this->assertStringContainsString('# Jengo AI Coding Rules & Context', $markdown);
         $this->assertStringContainsString('Package: jengo/test-package', $markdown);
         $this->assertStringContainsString('App\\Models\\TestModel', $markdown);
+    }
+
+    public function testAiDiscoverCommandWithTargets()
+    {
+        $config = config('Jengo');
+        $config->aiTargets = ['antigravity', 'cursor'];
+
+        command('jengo:ai discover');
+
+        // Verify Skill is created
+        $this->assertFileExists(ROOTPATH . '.agents/skills/jengo/SKILL.md');
+        $skill = file_get_contents(ROOTPATH . '.agents/skills/jengo/SKILL.md');
+        $this->assertStringContainsString('name: jengo', $skill);
+        $this->assertStringContainsString('jengo/test-package', $skill);
+
+        // Verify Cursor rules are created and wrapped in markers
+        $this->assertFileExists(ROOTPATH . '.cursorrules');
+        $cursorrules = file_get_contents(ROOTPATH . '.cursorrules');
+        $this->assertStringContainsString('### JENGO-AI-START', $cursorrules);
+        $this->assertStringContainsString('### JENGO-AI-END', $cursorrules);
+        $this->assertStringContainsString('jengo/test-package', $cursorrules);
     }
 }

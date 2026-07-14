@@ -114,7 +114,7 @@ class DiscoverVariant implements CommandVariantInterface
         file_put_contents($outputJsonPath, json_encode($compiled, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         CLI::write("Compiled manifest saved to: [{$outputJsonPath}]", 'green');
 
-        // 4. Generate rules.md (Dynamic Documentation Engine)
+        // 4. Generate rules.md (Generic JSON-to-Markdown Compiler)
         $markdown = "# Jengo AI Coding Rules & Context\n";
         $markdown .= "> Generated on " . date('Y-m-d H:i:s') . "\n\n";
         $markdown .= "This document provides context for AI assistants working on this Jengo project.\n\n";
@@ -127,80 +127,15 @@ class DiscoverVariant implements CommandVariantInterface
                     $markdown .= "*Description:* {$data['description']}\n\n";
                 }
 
-                // Compile all other topics dynamically
+                // Compile all other topics recursively and dynamically
                 foreach ($data as $topicName => $items) {
-                    if (in_array($topicName, ['name', 'description', 'usage'], true)) {
+                    if (in_array($topicName, ['name', 'description'], true)) {
                         continue;
                     }
 
-                    if (is_array($items)) {
-                        $title = ucwords(str_replace(['_', '-'], ' ', $topicName));
-                        $markdown .= "#### {$title}\n";
-
-                        foreach ($items as $item) {
-                            if (is_string($item)) {
-                                $markdown .= "- {$item}\n";
-                                continue;
-                            }
-
-                            if (!is_array($item)) {
-                                continue;
-                            }
-
-                            $identifier = $item['name'] ?? $item['class'] ?? $item['signature'] ?? null;
-                            if ($identifier) {
-                                $markdown .= "- **`{$identifier}`**";
-
-                                $sig = $item['signature'] ?? null;
-                                if ($sig && $identifier !== $sig) {
-                                    $markdown .= ": `{$sig}`";
-                                }
-
-                                $desc = $item['description'] ?? null;
-                                if ($desc) {
-                                    $markdown .= " — {$desc}";
-                                }
-                                $markdown .= "\n";
-                            } else {
-                                $markdown .= "- Item:\n";
-                            }
-
-                            // Dynamic property mapping
-                            foreach ($item as $propKey => $propVal) {
-                                if (in_array($propKey, ['name', 'class', 'signature', 'description'], true)) {
-                                    continue;
-                                }
-
-                                if (empty($propVal)) {
-                                    continue;
-                                }
-
-                                if (is_array($propVal)) {
-                                    if (self::isAssociative($propVal)) {
-                                        foreach ($propVal as $k => $v) {
-                                            $markdown .= "  - `{$k}`: {$v}\n";
-                                        }
-                                    } else {
-                                        $markdown .= "  - " . ucwords($propKey) . ": `" . implode('`, `', $propVal) . "`\n";
-                                    }
-                                } else {
-                                    $markdown .= "  - " . ucwords($propKey) . ": `{$propVal}`\n";
-                                }
-                            }
-                        }
-                        $markdown .= "\n";
-                    }
-                }
-
-                if (!empty($data['usage'])) {
-                    $markdown .= "#### Usage Examples\n";
-                    if (is_array($data['usage'])) {
-                        foreach ($data['usage'] as $key => $example) {
-                            $markdown .= "- **{$key}**:\n  ```php\n  {$example}\n  ```\n";
-                        }
-                    } else {
-                        $markdown .= "```php\n" . $data['usage'] . "\n```\n";
-                    }
+                    $title = ucwords(str_replace(['_', '-'], ' ', $topicName));
+                    $markdown .= "#### {$title}\n";
+                    $markdown .= $this->compileJsonToMarkdown($items, 2);
                     $markdown .= "\n";
                 }
             }
@@ -210,86 +145,219 @@ class DiscoverVariant implements CommandVariantInterface
         file_put_contents($outputRulesPath, $markdown);
         CLI::write("AI development rules saved to: [{$outputRulesPath}]", 'green');
 
-        // 5. IDE & Agent Integrations
-        $integrations = [
-            ROOTPATH . '.agents/AGENTS.md',
-            ROOTPATH . '.cursorrules',
-            ROOTPATH . '.clinerules',
-            ROOTPATH . '.copilotrules',
-        ];
+        // 5. Ask for target IDEs/agents if empty and interactive
+        $targets = $config->aiTargets ?? [];
+        if (empty($targets) && !defined('PHPUNIT_COMPOSER_INSTALL') && !defined('__PHPUNIT_PHAR__') && PHP_SAPI === 'cli') {
+            CLI::newLine();
+            CLI::write("No AI targets configured in Config/Jengo.php. Let's configure them now:", 'cyan');
+            if (CLI::prompt('Do you use Antigravity / Gemini CLI?', ['y', 'n']) === 'y') {
+                $targets[] = 'antigravity';
+            }
+            if (CLI::prompt('Do you use Cursor?', ['y', 'n']) === 'y') {
+                $targets[] = 'cursor';
+            }
+            if (CLI::prompt('Do you use Cline / Roo-Cline?', ['y', 'n']) === 'y') {
+                $targets[] = 'cline';
+            }
+            if (CLI::prompt('Do you use GitHub Copilot?', ['y', 'n']) === 'y') {
+                $targets[] = 'copilot';
+            }
+            $config->aiTargets = $targets;
+            $this->saveConfig($targets);
+        }
 
-        foreach ($integrations as $path) {
-            $dir = dirname($path);
+        // 6. IDE & Agent Integrations
+        foreach ($targets as $target) {
+            switch ($target) {
+                case 'antigravity':
+                    // Write to isolated skill file
+                    $skillDir = ROOTPATH . '.agents/skills/jengo';
+                    if (!is_dir($skillDir)) {
+                        mkdir($skillDir, 0755, true);
+                    }
+                    $skillMd = "---\nname: jengo\ndescription: Jengo framework developer rules and package specifications\n---\n\n" . $markdown;
+                    file_put_contents($skillDir . '/SKILL.md', $skillMd);
+                    CLI::write("Published Jengo capability skill to: [.agents/skills/jengo/SKILL.md]", 'green');
+                    break;
+                case 'cursor':
+                    $this->writeRulesSafely(ROOTPATH . '.cursorrules', $markdown);
+                    break;
+                case 'cline':
+                    $this->writeRulesSafely(ROOTPATH . '.clinerules', $markdown);
+                    break;
+                case 'copilot':
+                    $this->writeRulesSafely(ROOTPATH . '.copilotrules', $markdown);
+                    break;
+            }
+        }
+    }
+
+    private function compileJsonToMarkdown(mixed $data, int $depth = 1): string
+    {
+        $markdown = "";
+        $indent = str_repeat("  ", max(0, $depth - 2));
+
+        if (is_array($data)) {
+            if ($this->isAssociative($data)) {
+                foreach ($data as $key => $value) {
+                    $formattedKey = ucwords(str_replace(['_', '-'], ' ', (string) $key));
+
+                    if (is_array($value)) {
+                        if ($depth === 1) {
+                            $markdown .= str_repeat("#", min(6, $depth + 2)) . " {$formattedKey}\n";
+                            $markdown .= $this->compileJsonToMarkdown($value, $depth + 1);
+                        } else {
+                            $markdown .= "{$indent}- **{$formattedKey}**:\n";
+                            $markdown .= $this->compileJsonToMarkdown($value, $depth + 1);
+                        }
+                    } else {
+                        $strValue = $this->formatValue($value);
+                        if ($depth === 1) {
+                            $markdown .= "**{$formattedKey}**: {$strValue}\n\n";
+                        } else {
+                            $markdown .= "{$indent}- **{$formattedKey}**: {$strValue}\n";
+                        }
+                    }
+                }
+            } else {
+                // Sequential list
+                foreach ($data as $item) {
+                    if (is_array($item)) {
+                        $markdown .= $this->compileItemMarkdown($item, $depth);
+                    } else {
+                        $strValue = $this->formatValue($item);
+                        $markdown .= "{$indent}- {$strValue}\n";
+                    }
+                }
+                if ($depth === 1) {
+                    $markdown .= "\n";
+                }
+            }
+        } else {
+            $strValue = $this->formatValue($data);
+            $markdown .= "{$indent}- {$strValue}\n";
+        }
+
+        return $markdown;
+    }
+
+    private function compileItemMarkdown(array $item, int $depth): string
+    {
+        $markdown = "";
+        $indent = str_repeat("  ", max(0, $depth - 2));
+
+        $primaryKeys = ['name', 'class', 'signature', 'id'];
+        $labelKey = null;
+        foreach ($primaryKeys as $pk) {
+            if (array_key_exists($pk, $item)) {
+                $labelKey = $pk;
+                break;
+            }
+        }
+
+        if ($labelKey === null && !empty($item)) {
+            $keys = array_keys($item);
+            $labelKey = $keys[0];
+        }
+
+        if ($labelKey !== null) {
+            $labelVal = $this->formatValue($item[$labelKey]);
+            $formattedKey = ucwords(str_replace(['_', '-'], ' ', (string) $labelKey));
+
+            $markdown .= "{$indent}- **`{$labelVal}`** ({$formattedKey})\n";
+
+            foreach ($item as $k => $v) {
+                if ($k === $labelKey) {
+                    continue;
+                }
+
+                $formattedSubKey = ucwords(str_replace(['_', '-'], ' ', (string) $k));
+                if (is_array($v)) {
+                    $markdown .= "{$indent}  - **{$formattedSubKey}**:\n";
+                    $markdown .= $this->compileJsonToMarkdown($v, $depth + 2);
+                } else {
+                    $strVal = $this->formatValue($v);
+                    $markdown .= "{$indent}  - **{$formattedSubKey}**: {$strVal}\n";
+                }
+            }
+        } else {
+            $markdown .= $this->compileJsonToMarkdown($item, $depth);
+        }
+
+        return $markdown;
+    }
+
+    private function formatValue(mixed $value): string
+    {
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+        if ($value === null) {
+            return 'null';
+        }
+        return (string) $value;
+    }
+
+    private function writeRulesSafely(string $filePath, string $jengoRules): void
+    {
+        $startMarker = "### JENGO-AI-START";
+        $endMarker = "### JENGO-AI-END";
+
+        $wrappedRules = "\n" . $startMarker . "\n" . trim($jengoRules) . "\n" . $endMarker . "\n";
+
+        if (!file_exists($filePath)) {
+            $dir = dirname($filePath);
             if (!is_dir($dir)) {
                 mkdir($dir, 0755, true);
             }
-            file_put_contents($path, $markdown);
-            CLI::write("IDE/Agent integration saved to: [" . (basename($dir) === '.' ? '' : basename($dir) . '/') . basename($path) . "]", 'green');
+            file_put_contents($filePath, $wrappedRules);
+            CLI::write("Created AI rules file: [" . basename($filePath) . "]", 'green');
+            return;
+        }
+
+        $existingContent = file_get_contents($filePath);
+
+        $startPos = strpos($existingContent, $startMarker);
+        $endPos = strpos($existingContent, $endMarker);
+
+        if ($startPos !== false && $endPos !== false) {
+            $newContent = substr($existingContent, 0, $startPos)
+                . $wrappedRules
+                . substr($existingContent, $endPos + strlen($endMarker));
+        } else {
+            $newContent = rtrim($existingContent) . "\n" . $wrappedRules;
+        }
+
+        file_put_contents($filePath, $newContent);
+        CLI::write("Merged Jengo rules into: [" . basename($filePath) . "]", 'green');
+    }
+
+    private function saveConfig(array $targets): void
+    {
+        $appConfigPath = APPPATH . 'Config/Jengo.php';
+        if (!file_exists($appConfigPath)) {
+            $appConfigPath = ROOTPATH . 'src/Config/Jengo.php';
+            if (!file_exists($appConfigPath)) {
+                return;
+            }
+        }
+
+        $content = file_get_contents($appConfigPath);
+        $formattedTargets = "['" . implode("', '", $targets) . "']";
+
+        $pattern = '/(public\s+array\s+\$aiTargets\s*=\s*)([^;]+)(;)/i';
+        $replacement = '${1}' . $formattedTargets . '${3}';
+        $newContent = preg_replace($pattern, $replacement, $content);
+
+        if ($newContent !== null && $newContent !== $content) {
+            file_put_contents($appConfigPath, $newContent);
+            CLI::write("Updated Jengo config target IDEs/Agents.", 'green');
         }
     }
 
     private function validateManifest(array $content): bool
     {
-        if (empty($content['name']) || !is_string($content['name'])) {
-            return false;
-        }
-
-        $allowedItemKeys = [
-            'name',
-            'class',
-            'signature',
-            'description',
-            'usage',
-            'arguments',
-            'options',
-            'methods',
-            'fields',
-            'target',
-            'relation',
-            'foreignKey',
-            'from',
-            'to',
-            'select',
-            'many',
-            'helpers',
-            'facades',
-            'middleware',
-            'commands',
-            'packages'
-        ];
-
-        foreach ($content as $key => $value) {
-            if ($key === 'name' || $key === 'description') {
-                if (!is_string($value)) {
-                    return false;
-                }
-                continue;
-            }
-
-            if ($key === 'usage') {
-                if (!is_string($value) && !is_array($value)) {
-                    return false;
-                }
-                continue;
-            }
-
-            if (is_array($value)) {
-                foreach ($value as $item) {
-                    if (is_array($item)) {
-                        foreach ($item as $itemKey => $itemVal) {
-                            if (!in_array($itemKey, $allowedItemKeys, true)) {
-                                CLI::write("Manifest validation warning: key '{$itemKey}' in topic '{$key}' is not recognized.", 'yellow');
-                                return false;
-                            }
-                        }
-                    }
-                }
-            } else {
-                return false;
-            }
-        }
-
-        return true;
+        return !empty($content['name']) && is_string($content['name']);
     }
 
     private static function isAssociative(array $arr): bool
