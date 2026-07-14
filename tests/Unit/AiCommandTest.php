@@ -17,8 +17,8 @@ final class AiCommandTest extends CommandTestCase
         parent::setUp();
 
         $this->tempManifestPath = ROOTPATH . '.jengo/ai-manifest.json';
-        $this->outputJsonPath = ROOTPATH . '.jengo-ai.json';
-        $this->outputRulesDir = ROOTPATH . '.jengo-ai';
+        $this->outputJsonPath = ROOTPATH . '.jengo/ai/manifest.json';
+        $this->outputRulesDir = ROOTPATH . '.jengo/ai';
 
         if (!is_dir(dirname($this->tempManifestPath))) {
             mkdir(dirname($this->tempManifestPath), 0755, true);
@@ -59,6 +59,25 @@ final class AiCommandTest extends CommandTestCase
                 unlink($rulesFile);
             }
             rmdir($this->outputRulesDir);
+            // Also delete parent .jengo/ai directory if empty
+            if (is_dir(dirname($this->outputJsonPath))) {
+                @rmdir(dirname($this->outputJsonPath));
+            }
+        }
+
+        $integrations = [
+            ROOTPATH . '.agents/AGENTS.md',
+            ROOTPATH . '.cursorrules',
+            ROOTPATH . '.clinerules',
+            ROOTPATH . '.copilotrules',
+        ];
+        foreach ($integrations as $path) {
+            if (file_exists($path)) {
+                unlink($path);
+                if (basename(dirname($path)) === '.agents' && is_dir(dirname($path))) {
+                    @rmdir(dirname($path));
+                }
+            }
         }
 
         parent::tearDown();

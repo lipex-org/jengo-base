@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Base\Commands\Variants\Ai;
 
 use CodeIgniter\CLI\CLI;
+use Config\Services;
 use Jengo\Base\AI\AiCapableInterface;
 use Jengo\Base\Commands\Contracts\CommandVariantInterface;
 use Jengo\Base\Config\Jengo as JengoConfig;
@@ -38,7 +39,7 @@ class DiscoverVariant implements CommandVariantInterface
         CLI::write('Scanning Jengo ecosystem for AI capabilities...', 'cyan');
 
         $manifests = [];
-        $namespaces = config('Autoload')->psr4;
+        $namespaces = Services::autoloader()->getNamespace();
 
         // 1. Scan for manifest files
         $checkedPaths = [];
@@ -97,16 +98,16 @@ class DiscoverVariant implements CommandVariantInterface
             'dynamic_capabilities' => $dynamicCapabilities,
         ];
 
-        $outputJsonPath = ROOTPATH . '.jengo-ai.json';
+        $outputDir = ROOTPATH . '.jengo/ai';
+        if (!is_dir($outputDir)) {
+            mkdir($outputDir, 0755, true);
+        }
+
+        $outputJsonPath = $outputDir . '/manifest.json';
         file_put_contents($outputJsonPath, json_encode($compiled, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
         CLI::write("Compiled manifest saved to: [{$outputJsonPath}]", 'green');
 
         // 4. Generate rules.md
-        $rulesDir = ROOTPATH . '.jengo-ai';
-        if (!is_dir($rulesDir)) {
-            mkdir($rulesDir, 0755, true);
-        }
-
         $markdown = "# Jengo AI Coding Rules & Context\n";
         $markdown .= "> Generated on " . date('Y-m-d H:i:s') . "\n\n";
         $markdown .= "This document provides context for AI assistants working on this Jengo project.\n\n";
@@ -148,8 +149,25 @@ class DiscoverVariant implements CommandVariantInterface
             }
         }
 
-        $outputRulesPath = $rulesDir . '/rules.md';
+        $outputRulesPath = $outputDir . '/rules.md';
         file_put_contents($outputRulesPath, $markdown);
         CLI::write("AI development rules saved to: [{$outputRulesPath}]", 'green');
+
+        // 5. IDE & Agent Integrations
+        $integrations = [
+            ROOTPATH . '.agents/AGENTS.md',
+            ROOTPATH . '.cursorrules',
+            ROOTPATH . '.clinerules',
+            ROOTPATH . '.copilotrules',
+        ];
+
+        foreach ($integrations as $path) {
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($path, $markdown);
+            CLI::write("IDE/Agent integration saved to: [" . (basename($dir) === '.' ? '' : basename($dir) . '/') . basename($path) . "]", 'green');
+        }
     }
 }
