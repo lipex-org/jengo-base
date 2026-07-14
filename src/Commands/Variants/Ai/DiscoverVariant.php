@@ -47,7 +47,10 @@ class DiscoverVariant implements CommandVariantInterface
         // Add root path first
         $rootManifest = ROOTPATH . '.jengo/ai-manifest.json';
         if (file_exists($rootManifest)) {
-            $manifests['app'] = json_decode(file_get_contents($rootManifest), true);
+            $content = json_decode(file_get_contents($rootManifest), true);
+            if (is_array($content) && $this->validateManifest($content)) {
+                $manifests['app'] = $content;
+            }
         }
 
         foreach ($namespaces as $namespace => $dirs) {
@@ -70,8 +73,12 @@ class DiscoverVariant implements CommandVariantInterface
                         $checkedPaths[] = $path;
                         $content = json_decode(file_get_contents($path), true);
                         if (is_array($content)) {
-                            $name = $content['name'] ?? basename(dirname($path, 2));
-                            $manifests[$name] = $content;
+                            if ($this->validateManifest($content)) {
+                                $name = $content['name'];
+                                $manifests[$name] = $content;
+                            } else {
+                                CLI::write("Warning: Skipping invalid AI manifest at [{$path}]", 'yellow');
+                            }
                         }
                     }
                 }
@@ -120,26 +127,81 @@ class DiscoverVariant implements CommandVariantInterface
                     $markdown .= "*Description:* {$data['description']}\n\n";
                 }
 
-                if (!empty($data['models'])) {
+                if (!empty($data['helpers']) && is_array($data['helpers'])) {
+                    $markdown .= "#### Helper Functions\n";
+                    foreach ($data['helpers'] as $helper) {
+                        $name = $helper['name'] ?? 'unknown';
+                        $sig = $helper['signature'] ?? '';
+                        $desc = $helper['description'] ?? '';
+                        $markdown .= "- **`{$name}`**" . ($sig ? ": `{$sig}`" : "") . ($desc ? " — {$desc}" : "") . "\n";
+                    }
+                    $markdown .= "\n";
+                }
+
+                if (!empty($data['facades']) && is_array($data['facades'])) {
+                    $markdown .= "#### Facades & Static Helpers\n";
+                    foreach ($data['facades'] as $facade) {
+                        $class = $facade['class'] ?? 'unknown';
+                        $desc = $facade['description'] ?? '';
+                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
+                        if (!empty($facade['methods']) && is_array($facade['methods'])) {
+                            foreach ($facade['methods'] as $methodName => $methodDesc) {
+                                $markdown .= "  - `{$methodName}`: {$methodDesc}\n";
+                            }
+                        }
+                    }
+                    $markdown .= "\n";
+                }
+
+                if (!empty($data['classes']) && is_array($data['classes'])) {
+                    $markdown .= "#### Core Classes\n";
+                    foreach ($data['classes'] as $cls) {
+                        $class = $cls['class'] ?? 'unknown';
+                        $desc = $cls['description'] ?? '';
+                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
+                        if (!empty($cls['methods']) && is_array($cls['methods'])) {
+                            foreach ($cls['methods'] as $methodName => $methodDesc) {
+                                $markdown .= "  - `{$methodName}`: {$methodDesc}\n";
+                            }
+                        }
+                    }
+                    $markdown .= "\n";
+                }
+
+                if (!empty($data['middleware']) && is_array($data['middleware'])) {
+                    $markdown .= "#### Filters & Middleware\n";
+                    foreach ($data['middleware'] as $mw) {
+                        $class = $mw['class'] ?? 'unknown';
+                        $desc = $mw['description'] ?? '';
+                        $markdown .= "- **`{$class}`**" . ($desc ? " — {$desc}" : "") . "\n";
+                    }
+                    $markdown .= "\n";
+                }
+
+                if (!empty($data['models']) && is_array($data['models'])) {
                     $markdown .= "#### Models & Entities\n";
                     foreach ($data['models'] as $model) {
-                        $markdown .= "- **`{$model['class']}`**: {$model['description']}\n";
-                        if (!empty($model['fields'])) {
+                        $class = $model['class'] ?? 'unknown';
+                        $desc = $model['description'] ?? '';
+                        $markdown .= "- **`{$class}`**: {$desc}\n";
+                        if (!empty($model['fields']) && is_array($model['fields'])) {
                             $markdown .= "  - Fields: `" . implode('`, `', $model['fields']) . "`\n";
                         }
                     }
                     $markdown .= "\n";
                 }
 
-                if (!empty($data['events'])) {
+                if (!empty($data['events']) && is_array($data['events'])) {
                     $markdown .= "#### Dispatched Events\n";
                     foreach ($data['events'] as $event) {
-                        $markdown .= "- **`{$event['name']}`**: {$event['description']}\n";
+                        $name = $event['name'] ?? 'unknown';
+                        $desc = $event['description'] ?? '';
+                        $markdown .= "- **`{$name}`**: {$desc}\n";
                     }
                     $markdown .= "\n";
                 }
 
-                if (!empty($data['usage'])) {
+                if (!empty($data['usage']) && is_array($data['usage'])) {
                     $markdown .= "#### Usage Examples\n";
                     foreach ($data['usage'] as $key => $example) {
                         $markdown .= "- **{$key}**:\n  ```php\n  {$example}\n  ```\n";
@@ -169,5 +231,32 @@ class DiscoverVariant implements CommandVariantInterface
             file_put_contents($path, $markdown);
             CLI::write("IDE/Agent integration saved to: [" . (basename($dir) === '.' ? '' : basename($dir) . '/') . basename($path) . "]", 'green');
         }
+    }
+
+    private function validateManifest(array $content): bool
+    {
+        if (empty($content['name']) || !is_string($content['name'])) {
+            return false;
+        }
+
+        // Check models if present
+        if (isset($content['models']) && is_array($content['models'])) {
+            foreach ($content['models'] as $model) {
+                if (empty($model['class']) || !is_string($model['class'])) {
+                    return false;
+                }
+            }
+        }
+
+        // Check events if present
+        if (isset($content['events']) && is_array($content['events'])) {
+            foreach ($content['events'] as $event) {
+                if (empty($event['name']) || !is_string($event['name'])) {
+                    return false;
+                }
+            }
+        }
+
+        return true;
     }
 }
