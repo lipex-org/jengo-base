@@ -43,6 +43,35 @@ class Validate implements RouteAttributeInterface
 
         FormHandler::setLastInstance($handler);
 
+        // Deobfuscate router parameters so the controller receives the real integer IDs directly
+        $routeParams = $handler->getRouteParams();
+        $obfuscatedFields = $handler->getObfuscatedFields();
+        if (!empty($routeParams) && !empty($obfuscatedFields)) {
+            $router = \Config\Services::router();
+            $params = $router->params();
+            $updated = false;
+
+            foreach ($routeParams as $key => $index) {
+                if (in_array($key, $obfuscatedFields, true) && isset($params[$index])) {
+                    $validatedData = $handler->validated();
+                    $val = $validatedData->any($key);
+                    if ($val !== null) {
+                        $params[$index] = $val;
+                        $updated = true;
+                    }
+                }
+            }
+
+            if ($updated) {
+                $ref = new \ReflectionClass($router);
+                if ($ref->hasProperty('params')) {
+                    $prop = $ref->getProperty('params');
+                    $prop->setAccessible(true);
+                    $prop->setValue($router, $params);
+                }
+            }
+        }
+
         return null;
     }
 

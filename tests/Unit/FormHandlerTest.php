@@ -30,6 +30,17 @@ class TestFormHandler extends FormHandler
 
 class InvalidFormHandler {}
 
+class ObfuscatedFormHandler extends FormHandler
+{
+    protected array $rules = [
+        'user_id' => 'required|integer',
+    ];
+    protected array $obfuscatedFields = ['user_id'];
+    protected array $routeParams = [
+        'user_id' => 0,
+    ];
+}
+
 final class FormHandlerTest extends CIUnitTestCase
 {
     protected function setUp(): void
@@ -82,7 +93,7 @@ final class FormHandlerTest extends CIUnitTestCase
         $this->assertTrue($handler->validate($request));
         $this->assertEmpty($handler->getErrors());
 
-        $validated = $handler->validated();
+        $validated = $handler->validated()->toArray();
         $this->assertArrayHasKey('name', $validated);
         $this->assertArrayHasKey('email', $validated);
         $this->assertArrayNotHasKey('extra', $validated);
@@ -123,7 +134,7 @@ final class FormHandlerTest extends CIUnitTestCase
 
         $this->assertNull($response);
         $this->assertInstanceOf(TestFormHandler::class, form());
-        $this->assertSame('Alice', form()->validated()['name']);
+        $this->assertSame('Alice', form()->validated()->any('name'));
     }
 
     public function testValidateAttributeRunsFailureJson()
@@ -152,5 +163,70 @@ final class FormHandlerTest extends CIUnitTestCase
 
         $this->expectException(\RuntimeException::class);
         $attribute->before($request);
+    }
+
+    public function testFormHandlerDeobfuscatesValues()
+    {
+        // Setup sqids hash
+        $hash = sqids_hash(12345);
+
+        $request = $this->createRequest([
+            'user_id' => $hash,
+        ]);
+
+        $handler = new ObfuscatedFormHandler();
+        $this->assertTrue($handler->validate($request));
+        $this->assertSame(12345, $handler->validated()->any('user_id'));
+    }
+
+    public function testValidateAttributeDeobfuscatesRouterParams()
+    {
+        $hash = sqids_hash(9999);
+
+        $router = Services::router();
+        $ref = new \ReflectionClass($router);
+        $prop = $ref->getProperty('params');
+        $prop->setAccessible(true);
+        $prop->setValue($router, [0 => $hash]);
+
+        $request = $this->createRequest();
+
+        $attribute = new Validate(ObfuscatedFormHandler::class);
+        $response = $attribute->before($request);
+
+        $this->assertNull($response);
+        $this->assertSame(9999, form()->validated()->any('user_id'));
+        $this->assertSame(9999, $router->params()[0]);
+    }
+
+    public function testFormHandlerGroupsDataBySource()
+    {
+        // Set distinct request globals
+        $_GET = ['id' => 'get-value'];
+        $_POST = ['id' => 'post-value'];
+
+        $router = Services::router();
+        $ref = new \ReflectionClass($router);
+        $prop = $ref->getProperty('params');
+        $prop->setAccessible(true);
+        $prop->setValue($router, [0 => 'router-value']);
+
+        $request = $this->createRequest();
+        $request->setGlobal('get', ['id' => 'get-value']);
+        $request->setGlobal('post', ['id' => 'post-value']);
+
+        // Define inline handler
+        $handler = new class extends FormHandler {
+            protected array $rules = ['id' => 'required'];
+            protected array $routeParams = ['id' => 0];
+        };
+
+        $this->assertTrue($handler->validate($request));
+
+        $validated = $handler->validated();
+        $this->assertSame('get-value', $validated->get('id'));
+        $this->assertSame('post-value', $validated->post('id'));
+        $this->assertSame('router-value', $validated->router('id'));
+        $this->assertSame('router-value', $validated->any('id'));
     }
 }

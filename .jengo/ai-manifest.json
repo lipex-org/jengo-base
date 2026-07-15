@@ -24,11 +24,29 @@
   "validation": [
     {
       "class": "Jengo\\Base\\Validation\\FormHandler",
-      "description": "Abstract class to define validation rules, custom messages, handle redirect/JSON responses, and fetch validated data.",
+      "description": "Abstract class to define validation rules, custom messages, handle redirect/JSON responses, automatic Sqids deobfuscation, and fetch validated data.",
+      "properties": {
+        "rules": "array of validation rules (e.g. ['email' => 'required|valid_email'])",
+        "messages": "array of custom validation error messages",
+        "obfuscatedFields": "array of fields to automatically deobfuscate using Sqids unhashing prior to running validation",
+        "routeParams": "map of input keys to route parameter indices (e.g. ['id' => 0]) to fetch and deobfuscate parameters from matched route URLs"
+      },
       "methods": {
         "validate": "validate(?RequestInterface $request = null): bool (clears validation cache and runs validation)",
-        "validated": "validated(): array (returns only fields matching the defined rules)",
+        "validated": "validated(): ValidatedData (returns the ValidatedData DTO containing categorized validation results)",
         "getErrors": "getErrors(): array (returns validation errors)"
+      }
+    },
+    {
+      "class": "Jengo\\Base\\Validation\\ValidatedData",
+      "description": "DTO containing validated inputs separated by transport source as stdClass objects to prevent key collision.",
+      "methods": {
+        "get": "get(?string $key = null, mixed $default = null): mixed (returns the GET stdClass object or specific field)",
+        "post": "post(?string $key = null, mixed $default = null): mixed (returns the POST stdClass object or specific field)",
+        "json": "json(?string $key = null, mixed $default = null): mixed (returns the JSON body stdClass object or specific field)",
+        "router": "router(?string $key = null, mixed $default = null): mixed (returns the Router parameters stdClass object or specific field)",
+        "any": "any(string $key, mixed $default = null): mixed (retrieves input from router, json, post, or get sequentially)",
+        "toArray": "toArray(): array (compiles a flat key-value array of all validated inputs)"
       }
     },
     {
