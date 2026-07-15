@@ -168,3 +168,50 @@ if (!function_exists('form')) {
         return new $handlerClass();
     }
 }
+
+if (!function_exists('sqids_instance')) {
+    /**
+     * Returns the shared Sqids instance.
+     * @return \Sqids\Sqids
+     */
+    function sqids_instance(): \Sqids\Sqids
+    {
+        static $instance = null;
+        if ($instance === null) {
+            $config = config('Sqids') ?? new \Jengo\Base\Config\Sqids();
+            $instance = new \Sqids\Sqids($config->alphabet, $config->minLength);
+        }
+        return $instance;
+    }
+}
+
+if (!function_exists('sqids_hash')) {
+    /**
+     * Obfuscates an integer ID using Sqids.
+     * @param int|null $id
+     * @return string|null
+     */
+    function sqids_hash(?int $id): ?string
+    {
+        if ($id === null) {
+            return null;
+        }
+        return sqids_instance()->encode([$id]);
+    }
+}
+
+if (!function_exists('sqids_unhash')) {
+    /**
+     * Decodes a Sqids hash back to an integer ID.
+     * @param string|null $hash
+     * @return int|null
+     */
+    function sqids_unhash(?string $hash): ?int
+    {
+        if ($hash === null || $hash === '') {
+            return null;
+        }
+        $decoded = sqids_instance()->decode($hash);
+        return empty($decoded) ? null : (int) $decoded[0];
+    }
+}

@@ -43,19 +43,12 @@ abstract class AbstractMasterCommand extends BaseCommand
         $variant->run($params);
     }
 
-    /**
-     * Displays a dynamic help screen based on discovered variants.
-     */
-    public function showHelp(): void
+    public function showAvailableVariants(): void
     {
-        CLI::write("Usage:", 'yellow');
-        CLI::write("  {$this->name} <variant> [arguments] [options]");
-        CLI::newLine();
+        $variants = VariantRepository::all($this->variantPath);
 
         CLI::write("Available Variants:", 'yellow');
-        
-        $variants = VariantRepository::all($this->variantPath);
-        
+
         if (empty($variants)) {
             CLI::write("  (No variants found in path: {$this->variantPath})", 'dark_gray');
             return;
@@ -68,7 +61,7 @@ abstract class AbstractMasterCommand extends BaseCommand
 
         foreach ($variants as $variant) {
             CLI::write("  " . CLI::color(str_pad($variant::name(), $maxlen + 2), 'green') . $variant::description());
-            
+
             $args = $variant->arguments();
             if (!empty($args)) {
                 $maxArgLen = 0;
@@ -81,7 +74,75 @@ abstract class AbstractMasterCommand extends BaseCommand
                 }
             }
         }
-        
+    }
+
+    /**
+     * Displays a dynamic help screen based on discovered variants.
+     */
+    public function showHelp(): void
+    {
+        CLI::write("Usage:", 'yellow');
+        CLI::write("  {$this->name} <variant> [arguments] [options]");
         CLI::newLine();
+
+        $params = CLI::getSegments();
+        $variant = $params[1] ?? null;
+        $variantInstances = VariantRepository::all($this->variantPath);
+
+        if (!$variant) {
+            $this->showAvailableVariants();
+            return;
+        }
+
+        $variantAvailable = false;
+        $variantInstance = null;
+        foreach ($variantInstances as $v) {
+            if ($v::name() === $variant) {
+                $variantAvailable = true;
+                $variantInstance = $v;
+                break;
+            }
+        }
+
+        if (!$variantAvailable) {
+            CLI::error("Variant [{$variant}] not found for command [{$this->name}].");
+            CLI::newLine();
+            $this->showAvailableVariants();
+            return;
+        }
+
+        CLI::write("Specific Usage:", 'yellow');
+        CLI::write("  {$this->name} {$variant} [arguments] [options]");
+        CLI::newLine();
+
+        CLI::write("Description:", 'yellow');
+        CLI::write("  " . $variantInstance::description());
+        CLI::newLine();
+
+        $args = $variantInstance->arguments();
+        if (!empty($args)) {
+            CLI::write("Arguments:", 'yellow');
+            $maxArgLen = 0;
+            foreach ($args as $name => $desc) {
+                $maxArgLen = max($maxArgLen, strlen($name));
+            }
+            foreach ($args as $name => $desc) {
+                CLI::write("  " . CLI::color(str_pad($name, $maxArgLen + 2), 'green') . $desc);
+            }
+            CLI::newLine();
+        }
+
+        $opts = $variantInstance->options();
+        if (!empty($opts)) {
+            CLI::write("Options:", 'yellow');
+            $maxOptLen = 0;
+            foreach ($opts as $name => $desc) {
+                $maxOptLen = max($maxOptLen, strlen($name));
+            }
+            foreach ($opts as $name => $desc) {
+                CLI::write("  " . CLI::color(str_pad($name, $maxOptLen + 2), 'green') . $desc);
+            }
+            CLI::newLine();
+        }
     }
 }

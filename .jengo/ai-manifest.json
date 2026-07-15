@@ -1,6 +1,6 @@
 {
   "name": "jengo/base",
-  "description": "Core package of the Jengo framework. Integrates Vite, static Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, and fluent array/string wrappers.",
+  "description": "Core package of the Jengo framework. Integrates Vite, static Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, dynamic module autoloading, and fluent array/string wrappers.",
   "models": [
     {
       "class": "Jengo\\Base\\Entities\\BaseEntity",
@@ -68,6 +68,18 @@
       "usage": "$slug = str('My Title')->kebab()->toString();"
     }
   ],
+  "modules": [
+    {
+      "class": "Jengo\\Base\\Libraries\\ModuleDiscovery",
+      "description": "Scans root modules/ directory recursively to find Jengo modules containing a Module.php marker, registering their PSR-4 namespaces on the CodeIgniter autoloader dynamically or from cache. \n You can use the spark command `jengo:make module` to create a new module from the CLI",
+      "methods": {
+        "discoverAndRegister": "discoverAndRegister(): void (boots and registers modules namespaces)",
+        "discover": "discover(): array (gets cached or live scanned list of module namespaces)",
+        "clearCache": "clearCache(): void (deletes modules cache file)"
+      },
+      "usage": "ModuleDiscovery::discoverAndRegister();"
+    }
+  ],
   "helpers": [
     {
       "name": "form",
@@ -83,6 +95,21 @@
       "name": "vite_tags",
       "signature": "vite_tags(): string",
       "description": "Outputs Vite entry point development/production script and stylesheet links."
+    },
+    {
+      "name": "sqids_instance",
+      "signature": "sqids_instance(): \\Sqids\\Sqids",
+      "description": "Returns the shared Sqids instance for encoding/decoding IDs."
+    },
+    {
+      "name": "sqids_hash",
+      "signature": "sqids_hash(?int $id): ?string",
+      "description": "Obfuscates an integer ID using Sqids, returning null if the input is null."
+    },
+    {
+      "name": "sqids_unhash",
+      "signature": "sqids_unhash(?string $hash): ?int",
+      "description": "Decodes a Sqids hash back to an integer ID, returning null if the input is null/empty or invalid."
     }
   ],
   "commands": [
@@ -107,6 +134,10 @@
       "description": "Generate an Event and Listener."
     },
     {
+      "name": "jengo:make module",
+      "description": "Generate a new Jengo module structure."
+    },
+    {
       "name": "jengo:ai discover",
       "description": "Compiles Jengo package capabilities for AI coding assistants."
     },
@@ -117,6 +148,14 @@
     {
       "name": "jengo:health",
       "description": "Runs application health status checks."
+    },
+    {
+      "name": "jengo optimize",
+      "description": "Optimize Jengo performance by compiling modules configuration map."
+    },
+    {
+      "name": "jengo:clear cache",
+      "description": "Clear Jengo compiled module cache."
     }
   ]
 }

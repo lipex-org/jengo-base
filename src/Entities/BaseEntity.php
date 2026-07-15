@@ -27,39 +27,23 @@ class BaseEntity extends Entity
     protected array $obfuscatedFields = [];
 
     /**
-     * Shared Sqids instance.
-     */
-    protected static ?Sqids $sqidsInstance = null;
-
-    /**
-     * Get or initialize the Sqids instance.
-     */
-    protected function getSqids(): Sqids
-    {
-        if (self::$sqidsInstance === null) {
-            $config = config('Sqids') ?? new SqidsConfig();
-            self::$sqidsInstance = new Sqids($config->alphabet, $config->minLength);
-        }
-
-        return self::$sqidsInstance;
-    }
-
-    /**
      * Obfuscate an integer ID using Sqids.
      */
-    public function obfuscateValue(int $value): string
+    protected function obfuscateValue(int $value): string
     {
-        return $this->getSqids()->encode([$value]);
+        helper('jengo');
+
+        return sqids_hash($value) ?? '';
     }
 
     /**
      * Decode an obfuscated string back to its integer ID.
      */
-    public function deobfuscateValue(string $value): ?int
+    protected function deobfuscateValue(string $value): ?int
     {
-        $decoded = $this->getSqids()->decode($value);
+        helper('jengo');
 
-        return !empty($decoded) ? $decoded[0] : null;
+        return sqids_unhash($value);
     }
 
     /**
