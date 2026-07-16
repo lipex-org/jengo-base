@@ -26,7 +26,7 @@ class Validate implements RouteAttributeInterface
      */
     public function before(RequestInterface $request): RequestInterface|ResponseInterface|null
     {
-        if (! is_subclass_of($this->handlerClass, FormHandler::class)) {
+        if (!is_subclass_of($this->handlerClass, FormHandler::class)) {
             throw new \RuntimeException(sprintf(
                 'The validation handler [%s] must extend [%s].',
                 $this->handlerClass,
@@ -35,9 +35,9 @@ class Validate implements RouteAttributeInterface
         }
 
         /** @var FormHandler $handler */
-        $handler = new $this->handlerClass();
+        $handler = new $this->handlerClass($request);
 
-        if (! $handler->validate($request)) {
+        if (!$handler->validate()) {
             return $handler->redirectOrJson($handler->getErrors(), $request);
         }
 

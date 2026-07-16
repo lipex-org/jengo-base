@@ -59,9 +59,9 @@ abstract class FormHandler
      */
     protected Validation $validator;
 
-    public function __construct()
+    public function __construct(?RequestInterface $request = null)
     {
-        $this->request = Services::request();
+        $this->request = $request ?? Services::request();
         $this->validator = Services::validation();
     }
 

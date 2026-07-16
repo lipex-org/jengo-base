@@ -17,7 +17,7 @@ use Jengo\Base\Validation\FormHandler;
 class TestFormHandler extends FormHandler
 {
     protected array $rules = [
-        'name'  => 'required|min_length[3]',
+        'name' => 'required|min_length[3]',
         'email' => 'required|valid_email',
     ];
 
@@ -28,7 +28,9 @@ class TestFormHandler extends FormHandler
     ];
 }
 
-class InvalidFormHandler {}
+class InvalidFormHandler
+{
+}
 
 class ObfuscatedFormHandler extends FormHandler
 {
@@ -84,13 +86,13 @@ final class FormHandlerTest extends CIUnitTestCase
     public function testFormHandlerSuccess()
     {
         $request = $this->createRequest([
-            'name'  => 'Alice',
+            'name' => 'Alice',
             'email' => 'alice@example.com',
             'extra' => 'not-in-rules',
         ]);
 
-        $handler = new TestFormHandler();
-        $this->assertTrue($handler->validate($request));
+        $handler = new TestFormHandler($request);
+        $this->assertTrue($handler->validate());
         $this->assertEmpty($handler->getErrors());
 
         $validated = $handler->validated()->toArray();
@@ -102,7 +104,7 @@ final class FormHandlerTest extends CIUnitTestCase
     public function testFormHandlerFailure()
     {
         $request = $this->createRequest([
-            'name'  => 'Al',
+            'name' => 'Al',
             'email' => 'invalid-email',
         ]);
 
@@ -125,7 +127,7 @@ final class FormHandlerTest extends CIUnitTestCase
     public function testValidateAttributeRunsSuccess()
     {
         $request = $this->createRequest([
-            'name'  => 'Alice',
+            'name' => 'Alice',
             'email' => 'alice@example.com',
         ]);
 
@@ -140,7 +142,7 @@ final class FormHandlerTest extends CIUnitTestCase
     public function testValidateAttributeRunsFailureJson()
     {
         $request = $this->createRequest([
-            'name'  => 'Al',
+            'name' => 'Al',
         ], [
             'Accept' => 'application/json',
         ]);
@@ -174,8 +176,8 @@ final class FormHandlerTest extends CIUnitTestCase
             'user_id' => $hash,
         ]);
 
-        $handler = new ObfuscatedFormHandler();
-        $this->assertTrue($handler->validate($request));
+        $handler = new ObfuscatedFormHandler($request);
+        $this->assertTrue($handler->validate());
         $this->assertSame(12345, $handler->validated()->any('user_id'));
     }
 
@@ -216,12 +218,12 @@ final class FormHandlerTest extends CIUnitTestCase
         $request->setGlobal('post', ['id' => 'post-value']);
 
         // Define inline handler
-        $handler = new class extends FormHandler {
+        $handler = new class ($request) extends FormHandler {
             protected array $rules = ['id' => 'required'];
             protected array $routeParams = ['id' => 0];
         };
 
-        $this->assertTrue($handler->validate($request));
+        $this->assertTrue($handler->validate());
 
         $validated = $handler->validated();
         $this->assertSame('get-value', $validated->get('id'));
