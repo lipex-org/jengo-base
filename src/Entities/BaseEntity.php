@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Jengo\Base\Entities;
 
 use CodeIgniter\Entity\Entity;
-use Jengo\Base\Config\Sqids as SqidsConfig;
-use Sqids\Sqids;
 
 class BaseEntity extends Entity
 {
@@ -51,13 +49,6 @@ class BaseEntity extends Entity
      */
     public function __set(string $key, $value = null)
     {
-        if (is_string($value) && in_array($key, $this->obfuscatedFields, true)) {
-            $decoded = $this->deobfuscateValue($value);
-            if ($decoded !== null) {
-                $value = $decoded;
-            }
-        }
-
         parent::__set($key, $value);
     }
 
