@@ -140,7 +140,17 @@ abstract class FormHandler
             }
         }
 
-        // Deobfuscate fields in each group if configured
+        // Run validation on flat merged data
+        $flatData = array_merge($get, $post, $json, $routerData);
+
+        if (!$this->validator->withRequest($this->request)->run($flatData)) {
+            $this->errors = $this->validator->getErrors();
+            $this->validatedData = null;
+
+            return false;
+        }
+
+        // Deobfuscate fields in each group if configured (after validation)
         if (!empty($this->obfuscatedFields)) {
             helper('jengo');
             foreach ($this->obfuscatedFields as $field) {
@@ -169,16 +179,6 @@ abstract class FormHandler
                     }
                 }
             }
-        }
-
-        // Run validation on flat merged data
-        $flatData = array_merge($get, $post, $json, $routerData);
-
-        if (!$this->validator->withRequest($this->request)->run($flatData)) {
-            $this->errors = $this->validator->getErrors();
-            $this->validatedData = null;
-
-            return false;
         }
 
         // Filter and build ValidatedData DTO containing only rule-defined keys

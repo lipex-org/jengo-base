@@ -36,7 +36,7 @@ class InvalidFormHandler
 class ObfuscatedFormHandler extends FormHandler
 {
     protected array $rules = [
-        'user_id' => 'required|integer',
+        'user_id' => 'required',
     ];
     protected array $obfuscatedFields = ['user_id'];
     protected array $routeParams = [
