@@ -4,8 +4,10 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Validation;
 
+use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
+use CodeIgniter\Validation\Validation;
 use Config\Services;
 
 abstract class FormHandler
@@ -44,6 +46,24 @@ abstract class FormHandler
      * Validation errors.
      */
     protected ?array $errors = null;
+
+    /**
+     * Incoming request
+     * @var IncomingRequest
+     */
+    protected RequestInterface $request;
+
+    /**
+     * Validator
+     * @var Validation
+     */
+    protected Validation $validator;
+
+    public function __construct()
+    {
+        $this->request = Services::request();
+        $this->validator = Services::validation();
+    }
 
     /**
      * Set the last validated form handler instance.
@@ -96,20 +116,17 @@ abstract class FormHandler
     /**
      * Run validation.
      */
-    public function validate(?RequestInterface $request = null): bool
+    public function validate(): bool
     {
-        $request ??= Services::request();
-        $validation = Services::validation();
-
         // Reset the validation service state/errors before running
-        $validation->reset();
+        $this->validator->reset();
 
-        $validation->setRules($this->getRules(), $this->getMessages());
+        $this->validator->setRules($this->getRules(), $this->getMessages());
 
         // Extract groups
-        $get = $request->getGet() ?? [];
-        $post = $request->getPost() ?? [];
-        $json = is_array($request->getJSON(true)) ? $request->getJSON(true) : [];
+        $get = $this->request->getGet() ?? [];
+        $post = $this->request->getPost() ?? [];
+        $json = is_array($this->request->getJSON(true)) ? $this->request->getJSON(true) : [];
         $routerData = [];
 
         if (!empty($this->routeParams)) {
@@ -156,8 +173,8 @@ abstract class FormHandler
         // Run validation on flat merged data
         $flatData = array_merge($get, $post, $json, $routerData);
 
-        if (!$validation->withRequest($request)->run($flatData)) {
-            $this->errors = $validation->getErrors();
+        if (!$this->validator->withRequest($this->request)->run($flatData)) {
+            $this->errors = $this->validator->getErrors();
             $this->validatedData = null;
 
             return false;
@@ -194,6 +211,8 @@ abstract class FormHandler
 
     /**
      * Handle failed validation by returning redirect response or JSON response.
+     * @param array $errors
+     * @param IncomingRequest $request
      */
     public function redirectOrJson(array $errors, RequestInterface $request): ResponseInterface
     {
