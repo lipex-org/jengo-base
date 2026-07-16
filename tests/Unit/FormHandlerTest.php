@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use CodeIgniter\Events\Events;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\HTTP\URI;
@@ -230,5 +231,27 @@ final class FormHandlerTest extends CIUnitTestCase
         $this->assertSame('post-value', $validated->post('id'));
         $this->assertSame('router-value', $validated->router('id'));
         $this->assertSame('router-value', $validated->any('id'));
+    }
+
+    public function testFormHandlerOverrideFailedResponse()
+    {
+        // Register event listener
+        Events::on('jengo.form.failed', function ($holder) {
+            $mockResponse = Services::response()->setBody('overridden-response');
+            $holder->setResponse($mockResponse);
+        });
+
+        $request = $this->createRequest([
+            'name' => 'Al',
+        ]);
+
+        $handler = new TestFormHandler($request);
+        $this->assertFalse($handler->validate());
+
+        $response = $handler->redirectOrJson($handler->getErrors(), $request);
+        $this->assertSame('overridden-response', $response->getBody());
+
+        // Clean up event listener
+        Events::removeAllListeners('jengo.form.failed');
     }
 }

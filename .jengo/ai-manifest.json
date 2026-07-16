@@ -50,6 +50,16 @@
       }
     },
     {
+      "class": "Jengo\\Base\\Validation\\FormFailedResponseHolder",
+      "description": "Transport object passed to the jengo.form.failed event, allowing listeners to override the validation failure response.",
+      "methods": {
+        "getErrors": "getErrors(): array (returns the validation errors)",
+        "getRequest": "getRequest(): RequestInterface (returns the request)",
+        "setResponse": "setResponse(ResponseInterface $response): void (overrides the failed response)",
+        "getResponse": "getResponse(): ?ResponseInterface (returns the overridden response if set)"
+      }
+    },
+    {
       "attribute": "Jengo\\Base\\Attributes\\Validate",
       "description": "Controller class or method Attribute targeting pre-dispatch validation handling using a FormHandler.",
       "usage": "#[Validate(StoreUserForm::class)]\npublic function store() { $data = form()->validated(); }"
@@ -62,6 +72,10 @@
     }
   ],
   "events": [
+    {
+      "name": "jengo.form.failed",
+      "description": "Triggered when a FormHandler validation fails. Receives a FormFailedResponseHolder to let other adapters like Inertia JS influence the response."
+    },
     {
       "class": "Jengo\\Base\\Events\\AbstractEvent",
       "description": "Base event structure. Enforces event name constant (NAME) and handler method.",

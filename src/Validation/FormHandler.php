@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Validation;
 
+use CodeIgniter\Events\Events;
 use CodeIgniter\HTTP\IncomingRequest;
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
@@ -216,6 +217,14 @@ abstract class FormHandler
      */
     public function redirectOrJson(array $errors, RequestInterface $request): ResponseInterface
     {
+        // Trigger event to allow other packages (e.g. Inertia) to override the failed response
+        $holder = new FormFailedResponseHolder($errors, $request);
+        Events::trigger('jengo.form.failed', $holder);
+
+        if ($holder->getResponse() !== null) {
+            return $holder->getResponse();
+        }
+
         $isJson = $request->isAJAX() ||
             str_contains((string) $request->getHeaderLine('Accept'), 'application/json') ||
             str_contains((string) $request->getHeaderLine('Content-Type'), 'application/json');
