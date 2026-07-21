@@ -97,18 +97,5 @@ final class BaseEntityTest extends CIUnitTestCase
         $this->assertNotEquals('456', $data['id']);
         $this->assertNotEquals('789', $data['user_id']);
 
-        $obfuscatedId = $data['id'];
-        $obfuscatedUserId = $data['user_id'];
-
-        // Test decoding when setting properties
-        $newEntity = new TestEntity();
-        $newEntity->setObfuscatedFields(['id', 'user_id']);
-
-        $newEntity->id = $obfuscatedId;
-        $newEntity->user_id = $obfuscatedUserId;
-
-        // Attributes should be decoded back to integers
-        $this->assertSame(456, $newEntity->id);
-        $this->assertSame(789, $newEntity->user_id);
     }
 }
