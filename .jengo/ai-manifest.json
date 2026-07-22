@@ -188,6 +188,10 @@
     {
       "name": "jengo:clear cache",
       "description": "Clear Jengo compiled module cache."
+    },
+    {
+      "name": "jengo:dev",
+      "description": "Runs configured development processes (like Vite and custom dev tasks) concurrently in a single terminal."
     }
   ]
 }
