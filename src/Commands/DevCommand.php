@@ -6,13 +6,15 @@ namespace Jengo\Base\Commands;
 
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\CLI\CLI;
+use CodeIgniter\Events\Events;
+use Jengo\Base\Events\DevCommandsCollector;
 
 class DevCommand extends BaseCommand
 {
-    protected $group       = 'Jengo';
-    protected $name        = 'jengo:dev';
+    protected $group = 'Jengo';
+    protected $name = 'jengo:dev';
     protected $description = 'Run development servers and tasks concurrently.';
-    protected $usage       = 'jengo:dev';
+    protected $usage = 'jengo:dev';
 
     public function run(array $params)
     {
@@ -25,26 +27,40 @@ class DevCommand extends BaseCommand
         if ($viteEnabled) {
             $commandsToRun[] = [
                 'command' => 'npm run dev',
-                'label'   => 'Vite',
-                'color'   => '36', // Cyan
+                'label' => 'Vite',
+                'color' => '36', // Cyan
             ];
         }
 
-        // 2. Custom project dev commands
+        $colors = ['32', '35', '33', '34', '31', '36']; // Green, Magenta, Yellow, Blue, Red, Cyan
+        $colorIdx = 0;
+
+        // 2. Custom project dev commands from config
         $devConfig = config('Dev');
         if ($devConfig && isset($devConfig->commands) && is_array($devConfig->commands)) {
-            $colors = ['32', '35', '33', '34', '31', '36']; // Green, Magenta, Yellow, Blue, Red, Cyan
-            $colorIdx = 0;
             foreach ($devConfig->commands as $cmd) {
                 if (!empty($cmd['command'])) {
                     $commandsToRun[] = [
                         'command' => $cmd['command'],
-                        'label'   => $cmd['label'] ?? 'Task',
-                        'color'   => $cmd['color'] ?? $colors[$colorIdx % count($colors)],
+                        'label' => $cmd['label'] ?? 'Task',
+                        'color' => $cmd['color'] ?? $colors[$colorIdx % count($colors)],
                     ];
                     $colorIdx++;
                 }
             }
+        }
+
+        // 3. Custom dev commands from event listeners
+        $collector = new DevCommandsCollector();
+        Events::trigger('jengo.dev.register', $collector);
+
+        foreach ($collector->getCommands() as $cmd) {
+            $commandsToRun[] = [
+                'command' => $cmd['command'],
+                'label' => $cmd['label'],
+                'color' => $cmd['color'] ?? $colors[$colorIdx % count($colors)],
+            ];
+            $colorIdx++;
         }
 
         if (empty($commandsToRun)) {
@@ -76,8 +92,8 @@ class DevCommand extends BaseCommand
 
                     $processes[$index] = [
                         'process' => $process,
-                        'label'   => $label,
-                        'color'   => $color,
+                        'label' => $label,
+                        'color' => $color,
                         'command' => $command,
                     ];
 

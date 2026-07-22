@@ -16,6 +16,12 @@ final class DevCommandTest extends CommandTestCase
         // Ensure Vite is disabled by default for tests
         $_ENV['VITE_ENABLED'] = 'false';
         $_ENV['vite.enabled'] = 'false';
+
+        // Reset factories to prevent config state leakage between tests
+        \CodeIgniter\Config\Factories::reset('config');
+
+        // Turn off event simulation so event listeners actually execute
+        \CodeIgniter\Events\Events::simulate(false);
     }
 
     public function testRunEmptyCommandsReturnsWarning()
@@ -24,9 +30,10 @@ final class DevCommandTest extends CommandTestCase
         $runner = \Config\Services::commands();
         $command = new DevCommand($logger, $runner);
 
-        // Clear any registered dev commands in config
-        $config = config('Dev') ?? new DevConfig();
+        // Inject empty dev config
+        $config = new DevConfig();
         $config->commands = [];
+        \CodeIgniter\Config\Factories::injectMock('config', 'Dev', $config);
 
         $command->run([]);
 
@@ -40,8 +47,8 @@ final class DevCommandTest extends CommandTestCase
         $runner = \Config\Services::commands();
         $command = new DevCommand($logger, $runner);
 
-        // Register two fast-exiting mock commands
-        $config = config('Dev') ?? new DevConfig();
+        // Register and inject two fast-exiting mock commands
+        $config = new DevConfig();
         $config->commands = [
             [
                 'command' => 'echo "custom output 1"',
@@ -54,6 +61,7 @@ final class DevCommandTest extends CommandTestCase
                 'color'   => '35', // Magenta
             ]
         ];
+        \CodeIgniter\Config\Factories::injectMock('config', 'Dev', $config);
 
         // Capture standard output
         ob_start();
@@ -68,5 +76,37 @@ final class DevCommandTest extends CommandTestCase
 
         $output = $this->io->getOutput();
         $this->assertStringContainsString('exited with code 0', $output);
+    }
+
+    public function testRunsEventRegisteredDevCommands()
+    {
+        $logger = \Config\Services::logger();
+        $runner = \Config\Services::commands();
+        $command = new DevCommand($logger, $runner);
+
+        // Inject empty dev config
+        $config = new DevConfig();
+        $config->commands = [];
+        \CodeIgniter\Config\Factories::injectMock('config', 'Dev', $config);
+
+        // Register a listener for jengo.dev.register
+        $listener = static function (\Jengo\Base\Events\DevCommandsCollector $collector) {
+            $collector->register('echo "event output 1"', 'EventMockTask');
+        };
+        \CodeIgniter\Events\Events::on('jengo.dev.register', $listener);
+
+        // Capture standard output
+        ob_start();
+        $command->run([]);
+        $captured = ob_get_clean();
+
+        $this->assertStringContainsString('[EventMockTask]', $captured);
+        $this->assertStringContainsString('event output 1', $captured);
+
+        $output = $this->io->getOutput();
+        $this->assertStringContainsString('exited with code 0', $output);
+
+        // Remove listener to clean up event registry
+        \CodeIgniter\Events\Events::removeListener('jengo.dev.register', $listener);
     }
 }
