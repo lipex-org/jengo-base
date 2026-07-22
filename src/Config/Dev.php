@@ -17,5 +17,11 @@ class Dev extends BaseConfig
      *
      * @var array<int, array{command: string, label: string, color?: string}>
      */
-    public array $commands = [];
+    public array $commands = [
+        [
+            'command' => 'php spark serve',
+            'label'   => 'Server',
+            'color'   => '32', // Green
+        ]
+    ];
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit\Commands;
 
+use CodeIgniter\Events\Events;
 use Jengo\Base\Commands\DevCommand;
 use Jengo\Base\Config\Dev as DevConfig;
 use Tests\Support\CommandTestCase;
@@ -52,13 +53,13 @@ final class DevCommandTest extends CommandTestCase
         $config->commands = [
             [
                 'command' => 'echo "custom output 1"',
-                'label'   => 'MockTask1',
-                'color'   => '32', // Green
+                'label' => 'MockTask1',
+                'color' => '32', // Green
             ],
             [
                 'command' => 'echo "custom output 2"',
-                'label'   => 'MockTask2',
-                'color'   => '35', // Magenta
+                'label' => 'MockTask2',
+                'color' => '35', // Magenta
             ]
         ];
         \CodeIgniter\Config\Factories::injectMock('config', 'Dev', $config);
@@ -93,7 +94,7 @@ final class DevCommandTest extends CommandTestCase
         $listener = static function (\Jengo\Base\Events\DevCommandsCollector $collector) {
             $collector->register('echo "event output 1"', 'EventMockTask');
         };
-        \CodeIgniter\Events\Events::on('jengo.dev.register', $listener);
+        Events::on('jengo.dev.register', $listener);
 
         // Capture standard output
         ob_start();
@@ -107,6 +108,6 @@ final class DevCommandTest extends CommandTestCase
         $this->assertStringContainsString('exited with code 0', $output);
 
         // Remove listener to clean up event registry
-        \CodeIgniter\Events\Events::removeListener('jengo.dev.register', $listener);
+        Events::removeListener('jengo.dev.register', $listener);
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\Unit;
 
+use CodeIgniter\Config\Factories;
 use Tests\Support\CommandTestCase;
 
 final class AiCommandTest extends CommandTestCase
@@ -131,5 +132,38 @@ final class AiCommandTest extends CommandTestCase
         $this->assertStringContainsString('### JENGO-AI-START', $cursorrules);
         $this->assertStringContainsString('### JENGO-AI-END', $cursorrules);
         $this->assertStringContainsString('jengo/test-package', $cursorrules);
+    }
+
+    public function testAiDiscoverCommandWithIdeOption()
+    {
+        // Mock a clean config
+        $config = config('Jengo') ?? new \Jengo\Base\Config\Jengo();
+        $config->aiTargets = [];
+        Factories::injectMock('config', 'Jengo', $config);
+
+        // Mock CLI option input via argv and re-initialize CLI
+        $oldArgv = $_SERVER['argv'] ?? [];
+        $_SERVER['argv'] = ['spark', 'jengo:ai', 'discover', '--ide', 'cursor,cline'];
+        \CodeIgniter\CLI\CLI::init();
+
+        // Run command
+        command('jengo:ai discover');
+
+        // Restore original argv
+        $_SERVER['argv'] = $oldArgv;
+        \CodeIgniter\CLI\CLI::init();
+
+        // Check that target rules are successfully created
+        $this->assertFileExists(ROOTPATH . '.cursorrules');
+        $this->assertFileExists(ROOTPATH . '.clinerules');
+
+        $cursorrules = file_get_contents(ROOTPATH . '.cursorrules');
+        $this->assertStringContainsString('### JENGO-AI-START', $cursorrules);
+
+        $clinerules = file_get_contents(ROOTPATH . '.clinerules');
+        $this->assertStringContainsString('### JENGO-AI-START', $clinerules);
+
+        // Check that config is updated/saved to target IDEs
+        $this->assertEquals(['cursor', 'cline'], $config->aiTargets);
     }
 }

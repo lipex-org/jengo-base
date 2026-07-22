@@ -20,7 +20,17 @@ class ModuleDiscovery
 
         $autoloader = Services::autoloader();
         foreach ($modules as $namespace => $path) {
-            $autoloader->addNamespace($namespace, $path);
+            $ns = rtrim($namespace, '\\') . '\\';
+            $autoloader->addNamespace($ns, $path);
+        }
+
+        // Register these modules to the CodeIgniter Autoload config at runtime
+        $autoloadConfig = config('Autoload');
+        if ($autoloadConfig) {
+            foreach ($modules as $namespace => $path) {
+                $ns = rtrim($namespace, '\\') . '\\';
+                $autoloadConfig->psr4[$ns] = $path;
+            }
         }
     }
 
@@ -106,9 +116,9 @@ class ModuleDiscovery
      */
     private static function isValidModule(string $path): bool
     {
-        return is_dir($path . '/Config') || 
-               is_dir($path . '/Controllers') || 
-               file_exists($path . '/Module.php');
+        return is_dir($path . '/Config') ||
+            is_dir($path . '/Controllers') ||
+            file_exists($path . '/Module.php');
     }
 
     /**

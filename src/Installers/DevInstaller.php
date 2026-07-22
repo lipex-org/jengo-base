@@ -16,7 +16,7 @@ class DevInstaller extends AbstractInstaller
 
     public static function description(): string
     {
-        return 'Configure development environment (Concurrently, .env, Composer scripts)';
+        return 'Configure development environment (Native concurrency, .env, Composer scripts)';
     }
 
     public static function reasonForSkipping(): string
@@ -32,7 +32,7 @@ class DevInstaller extends AbstractInstaller
     public function shouldRun(): bool
     {
         $composer = json_decode(file_get_contents(ROOTPATH . 'composer.json'), true);
-        return !isset($composer['scripts']['dev']);
+        return !isset($composer['scripts']['dev']) || $composer['scripts']['dev'] !== 'php spark jengo:dev';
     }
 
     public function install(): void
@@ -45,14 +45,8 @@ class DevInstaller extends AbstractInstaller
             ->set('CI_ENVIRONMENT', 'development')
             ->save();
 
-        // 2. Install concurrently
-        $pm = $this->node();
-        CLI::write("  " . CLI::color('●', 'cyan') . " Installing concurrently via {$pm->getManager()}...", 'dark_gray');
-
-        $this->run($pm->getAddCommand(['concurrently']));
-
-        // 3. Update composer.json
-        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updating composer.json with dev script and high timeout...', 'dark_gray');
+        // 2. Update composer.json
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updating composer.json with dev script, post-autoload-dump hook, and high timeout...', 'dark_gray');
 
         $composerPath = ROOTPATH . 'composer.json';
         $composer = json_decode(file_get_contents($composerPath), true);
@@ -66,7 +60,21 @@ class DevInstaller extends AbstractInstaller
         }
 
         // Add the dev script
-        $composer['scripts']['dev'] = 'npx concurrently "php spark serve" "npm run dev" --kill-others';
+        $composer['scripts']['dev'] = 'php spark jengo:dev';
+
+        // Add the post-autoload-dump hook for AI rule compilation
+        $hookCmd = 'php spark jengo:ai discover';
+        if (!isset($composer['scripts']['post-autoload-dump'])) {
+            $composer['scripts']['post-autoload-dump'] = [$hookCmd];
+        } else {
+            $existing = $composer['scripts']['post-autoload-dump'];
+            if (is_string($existing)) {
+                $composer['scripts']['post-autoload-dump'] = [$existing];
+            }
+            if (!in_array($hookCmd, $composer['scripts']['post-autoload-dump'], true)) {
+                $composer['scripts']['post-autoload-dump'][] = $hookCmd;
+            }
+        }
 
         // Set a very high process timeout (0 = infinite)
         $composer['config']['process-timeout'] = 0;

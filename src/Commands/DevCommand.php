@@ -20,6 +20,14 @@ class DevCommand extends BaseCommand
     {
         $commandsToRun = [];
 
+        if (defined('ENVIRONMENT') && ENVIRONMENT !== 'testing') {
+            $commandsToRun[] = [
+                'command' => 'cd ' . ROOTPATH . ' && php spark serve',
+                'label' => 'Dev',
+                'color' => '31',
+            ];
+        }
+
         // 1. Vite check
         $viteEnabled = env('VITE_ENABLED') ?? env('vite.enabled') ?? false;
         $viteEnabled = filter_var($viteEnabled, FILTER_VALIDATE_BOOLEAN);

@@ -31,6 +31,7 @@ class DiscoverVariant implements CommandVariantInterface
     {
         return [
             '--force' => 'Force regeneration of rule files',
+            '--ide'   => 'Comma-separated target IDEs/Agents (antigravity, cursor, cline, copilot)',
         ];
     }
 
@@ -147,21 +148,44 @@ class DiscoverVariant implements CommandVariantInterface
 
         // 5. Ask for target IDEs/agents if empty and interactive
         $targets = $config->aiTargets ?? [];
-        if (empty($targets) && !defined('PHPUNIT_COMPOSER_INSTALL') && !defined('__PHPUNIT_PHAR__') && PHP_SAPI === 'cli') {
-            CLI::newLine();
-            CLI::write("No AI targets configured in Config/Jengo.php. Let's configure them now:", 'cyan');
-            if (CLI::prompt('Do you use Antigravity / Gemini CLI?', ['y', 'n']) === 'y') {
-                $targets[] = 'antigravity';
+
+        // Parse option input if provided (takes priority and updates config cache)
+        $ideOpt = CLI::getOption('ide');
+        if (is_string($ideOpt) && $ideOpt !== '') {
+            $parsed = array_filter(array_map('trim', explode(',', $ideOpt)));
+            $parsed = array_intersect($parsed, ['antigravity', 'cursor', 'cline', 'copilot']);
+            if (!empty($parsed)) {
+                $targets = $parsed;
+                $config->aiTargets = $targets;
+                $this->saveConfig($targets);
             }
-            if (CLI::prompt('Do you use Cursor?', ['y', 'n']) === 'y') {
-                $targets[] = 'cursor';
+        }
+
+        // Prompt or fallback if no cached choices exist
+        if (empty($targets)) {
+            $isInteractive = PHP_SAPI === 'cli'
+                && function_exists('stream_isatty')
+                && @stream_isatty(STDIN)
+                && !getenv('COMPOSER_BINARY')
+                && !defined('PHPUNIT_COMPOSER_INSTALL')
+                && !defined('__PHPUNIT_PHAR__');
+
+            if ($isInteractive) {
+                CLI::newLine();
+                CLI::write("No AI targets configured in Config/Jengo.php. Let's configure them now:", 'cyan');
+                CLI::write("Available options: antigravity, cursor, cline, copilot (comma-separated, e.g. cursor, antigravity)");
+                $response = CLI::prompt("Which targets do you use?", 'antigravity');
+
+                $parsed = array_filter(array_map('trim', explode(',', $response)));
+                $targets = array_intersect($parsed, ['antigravity', 'cursor', 'cline', 'copilot']);
+                if (empty($targets)) {
+                    $targets = ['antigravity'];
+                }
+            } else {
+                // Non-interactive fallback (e.g., composer hook)
+                $targets = ['antigravity'];
             }
-            if (CLI::prompt('Do you use Cline / Roo-Cline?', ['y', 'n']) === 'y') {
-                $targets[] = 'cline';
-            }
-            if (CLI::prompt('Do you use GitHub Copilot?', ['y', 'n']) === 'y') {
-                $targets[] = 'copilot';
-            }
+
             $config->aiTargets = $targets;
             $this->saveConfig($targets);
         }
