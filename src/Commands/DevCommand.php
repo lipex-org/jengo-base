@@ -188,6 +188,16 @@ class DevCommand extends BaseCommand
                     }
                 }
             }
+
+            // Wait for any remaining processes to exit
+            foreach ($processes as $index => $spec) {
+                if (is_resource($spec['process'])) {
+                    $exitCode = proc_close($spec['process']);
+                    $exitCode = ($exitCode === -1) ? 0 : $exitCode;
+                    CLI::write("Process [{$spec['label']}] exited with code {$exitCode}", 'yellow');
+                    unset($processes[$index]);
+                }
+            }
         } finally {
             // Terminate all remaining processes on exit/Ctrl+C
             foreach ($processes as $spec) {

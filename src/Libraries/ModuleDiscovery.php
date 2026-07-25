@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Base\Libraries;
 
 use CodeIgniter\CLI\CLI;
+use Config\Autoload;
 use Config\Services;
 
 class ModuleDiscovery
@@ -14,7 +15,7 @@ class ModuleDiscovery
     /**
      * Discover modules and register their PSR-4 namespaces on the CodeIgniter autoloader.
      */
-    public static function discoverAndRegister(): void
+    public static function discoverAndRegister(?Autoload $autoloadConfig = null): void
     {
         $modules = self::discover();
 
@@ -25,7 +26,7 @@ class ModuleDiscovery
         }
 
         // Register these modules to the CodeIgniter Autoload config at runtime
-        $autoloadConfig = config('Autoload');
+        $autoloadConfig ??= config('Autoload');
         if ($autoloadConfig) {
             foreach ($modules as $namespace => $path) {
                 $ns = rtrim($namespace, '\\') . '\\';

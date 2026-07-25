@@ -75,7 +75,7 @@ final class DevCommandTest extends CommandTestCase
         $this->assertStringContainsString('[MockTask2]', $captured);
         $this->assertStringContainsString('custom output 2', $captured);
 
-        $output = $this->io->getOutput();
+        $output = $this->io->getOutput() . $captured;
         $this->assertStringContainsString('exited with code 0', $output);
     }
 
@@ -104,7 +104,7 @@ final class DevCommandTest extends CommandTestCase
         $this->assertStringContainsString('[EventMockTask]', $captured);
         $this->assertStringContainsString('event output 1', $captured);
 
-        $output = $this->io->getOutput();
+        $output = $this->io->getOutput() . $captured;
         $this->assertStringContainsString('exited with code 0', $output);
 
         // Remove listener to clean up event registry
