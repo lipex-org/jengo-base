@@ -4,13 +4,22 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Libraries;
 
-use CodeIgniter\CLI\CLI;
 use Config\Autoload;
 use Config\Services;
 
 class ModuleDiscovery
 {
     private static ?array $cachedModules = null;
+
+    public function discoverAndRegisterInTesting(Autoload $autoloadConfig): void
+    {
+        helper('Jengo\Base\Helpers\jengo');
+
+        if (isTesting()) {
+            self::discoverAndRegister($autoloadConfig);
+        }
+    }
+
 
     /**
      * Discover modules and register their PSR-4 namespaces on the CodeIgniter autoloader.
