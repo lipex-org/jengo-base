@@ -170,8 +170,8 @@ final class DevCommandTest extends CommandTestCase
         $optionsProperty->setAccessible(true);
         $optionsProperty->setValue(null, ['format' => 'default']);
 
-        // Register a sequential task
-        DevCommand::register('echo "sequential test output"', 'SeqTask', '32', false, [], true);
+        // Register a sequential task fluently
+        DevCommand::register('echo "sequential test output"', 'SeqTask')->sequential()->register();
 
         ob_start();
         $command->run([]);
@@ -182,5 +182,27 @@ final class DevCommandTest extends CommandTestCase
         $this->assertStringContainsString('Running [SeqTask]', $output);
         $this->assertStringContainsString('sequential test output', $output);
         $this->assertStringContainsString('Completed [SeqTask]', $output);
+    }
+
+    public function testRunsCustomDevCommandsWithFluentAPI()
+    {
+        $logger = \Config\Services::logger();
+        $runner = \Config\Services::commands();
+        $command = new DevCommand($logger, $runner);
+
+        $reflection = new \ReflectionClass(\CodeIgniter\CLI\CLI::class);
+        $optionsProperty = $reflection->getProperty('options');
+        $optionsProperty->setAccessible(true);
+        $optionsProperty->setValue(null, ['format' => 'default']);
+
+        // Register custom command via fluent chaining API
+        DevCommand::spark('custom:command', 'FluentTask')->green()->autoRestart()->watch('app')->register();
+
+        ob_start();
+        $command->run([]);
+        $captured = ob_get_clean();
+
+        $output = $this->io->getOutput() . $captured;
+        $this->assertNotNull($output);
     }
 }

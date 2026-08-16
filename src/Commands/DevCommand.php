@@ -32,7 +32,7 @@ class DevCommand extends BaseCommand
     private ?string $originalStty = null;
 
     /**
-     * Register a general shell command.
+     * Register a general shell command or initiate a fluent builder.
      */
     public static function register(
         string $command,
@@ -42,23 +42,48 @@ class DevCommand extends BaseCommand
         array $watch = [],
         bool $sequential = false,
         array $dependsOn = []
-    ): void {
-        $chosenColor = $color ?? self::$colors[self::$colorIdx % count(self::$colors)];
+    ): DevProcessBuilder {
+        $builder = new DevProcessBuilder($command, $label);
+        if ($color !== null) {
+            $builder->color($color);
+        }
+        if ($autoRestart) {
+            $builder->autoRestart();
+        }
+        if (!empty($watch)) {
+            $builder->watch(...$watch);
+        }
+        if ($sequential) {
+            $builder->sequential();
+        }
+        if (!empty($dependsOn)) {
+            $builder->dependsOn(...$dependsOn);
+        }
+
+        return $builder;
+    }
+
+    /**
+     * Add a configured process specification directly to runtime custom commands (called by builder).
+     */
+    public static function addProcess(array $spec): void
+    {
+        $chosenColor = $spec['color'] ?? self::$colors[self::$colorIdx % count(self::$colors)];
         self::$colorIdx++;
 
         self::$customCommands[] = [
-            'command' => $command,
-            'label' => $label,
+            'command' => $spec['command'],
+            'label' => $spec['label'],
             'color' => $chosenColor,
-            'auto_restart' => $autoRestart,
-            'watch' => $watch,
-            'sequential' => $sequential,
-            'depends_on' => $dependsOn,
+            'auto_restart' => $spec['auto_restart'],
+            'watch' => $spec['watch'],
+            'sequential' => $spec['sequential'],
+            'depends_on' => $spec['depends_on'],
         ];
     }
 
     /**
-     * Register a Spark CLI command.
+     * Register a Spark CLI command or initiate a fluent builder.
      */
     public static function spark(
         string $command,
@@ -68,12 +93,12 @@ class DevCommand extends BaseCommand
         array $watch = [],
         bool $sequential = false,
         array $dependsOn = []
-    ): void {
+    ): DevProcessBuilder {
         $phpBinary = escapeshellarg(PHP_BINARY);
         $sparkPath = escapeshellarg(ROOTPATH . 'spark');
         $fullCommand = "{$phpBinary} {$sparkPath} {$command}";
 
-        self::register($fullCommand, $label, $color, $autoRestart, $watch, $sequential, $dependsOn);
+        return self::register($fullCommand, $label, $color, $autoRestart, $watch, $sequential, $dependsOn);
     }
 
     public static function only(string ...$names): void
