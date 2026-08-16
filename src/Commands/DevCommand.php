@@ -127,6 +127,11 @@ class DevCommand extends BaseCommand
     {
         $format = CLI::getOption('format') ?? 'tui';
 
+        // Clear terminal screen on startup (unless running tests)
+        if (ENVIRONMENT !== 'testing') {
+            echo "\033[2J\033[H";
+        }
+
         $commandsToRun = [];
         $defaults = [
             'vite' => [
