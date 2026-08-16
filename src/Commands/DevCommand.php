@@ -581,7 +581,7 @@ class DevCommand extends BaseCommand
                         $activeTab = -1;
                         $lastDraw = 0;
                     } elseif (is_numeric($char)) {
-                        $idx = (int)$char - 1;
+                        $idx = (int) $char - 1;
                         if (isset($processes[$idx])) {
                             $activeTab = $idx;
                             $lastDraw = 0;
@@ -883,7 +883,7 @@ class DevCommand extends BaseCommand
         }
         $output = shell_exec("ps -p {$pid} -o rss=");
         if ($output) {
-            $kb = (int)trim($output);
+            $kb = (int) trim($output);
             if ($kb > 1024) {
                 return round($kb / 1024, 1) . ' MB';
             }
