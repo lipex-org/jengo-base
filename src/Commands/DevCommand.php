@@ -113,6 +113,15 @@ class DevCommand extends BaseCommand
                 'sequential' => false,
                 'depends_on' => [],
             ],
+            'server' => [
+                'command' => PHP_BINARY . ' ' . ROOTPATH . 'spark serve',
+                'label' => 'Server',
+                'color' => '32',
+                'auto_restart' => true,
+                'watch' => [],
+                'sequential' => false,
+                'depends_on' => [],
+            ],
             'logs' => [
                 'command' => PHP_BINARY . ' ' . ROOTPATH . 'spark jengo:tail log',
                 'label' => 'Logs',
@@ -140,7 +149,7 @@ class DevCommand extends BaseCommand
                 }
             }
 
-            if ($name === 'logs') {
+            if ($name === 'server' || $name === 'logs') {
                 if (ENVIRONMENT === 'testing') {
                     continue;
                 }

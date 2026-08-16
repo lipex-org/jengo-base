@@ -128,8 +128,8 @@ final class DevCommandTest extends CommandTestCase
         $optionsProperty->setAccessible(true);
         $optionsProperty->setValue(null, ['format' => 'default']);
 
-        // Exclude Vite and Logs
-        DevCommand::except('vite', 'logs');
+        // Exclude Vite, Server, and Logs
+        DevCommand::except('vite', 'server', 'logs');
 
         $command->run([]);
 
@@ -150,7 +150,7 @@ final class DevCommandTest extends CommandTestCase
         $optionsProperty->setAccessible(true);
         $optionsProperty->setValue(null, ['format' => 'default']);
 
-        // Limit to only 'non_existent_default' (excludes vite and logs)
+        // Limit to only 'non_existent_default' (excludes vite, server, and logs)
         DevCommand::only('non_existent_default');
 
         $command->run([]);
