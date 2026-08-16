@@ -34,7 +34,7 @@ final class LogTailCommandTest extends CommandTestCase
     {
         command('jengo:tail log --date 1999-01-01 --time 1s');
 
-        $this->assertStringContainsString('Log file not found: log-1999-01-01.log', $this->getBuffer());
+        $this->assertStringContainsString('Log file not found and could not be auto-generated: log-1999-01-01.log', $this->getBuffer());
     }
 
     public function testRunTailsFileAndFiltersByLevel()

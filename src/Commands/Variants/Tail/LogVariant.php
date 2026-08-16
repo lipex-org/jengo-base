@@ -201,12 +201,21 @@ class LogVariant extends AbstractVariant
     private function validateLogFile(string $filePath, string $date): bool
     {
         if (!is_dir(WRITEPATH . 'logs')) {
-            CLI::error("Logs directory not found at: " . WRITEPATH . 'logs');
-            return false;
+            mkdir(WRITEPATH . 'logs', 0777, true);
         }
 
         if (!file_exists($filePath)) {
-            CLI::error("Log file not found: log-{$date}.log");
+            CLI::write("Log file not found. Auto-generating logs to create file: log-{$date}.log", 'yellow');
+
+            $levels = ['info', 'critical', 'error', 'debug', 'emergency', 'alert', 'warning', 'notice'];
+
+            foreach ($levels as $level) {
+                log_message($level, "Jengo Auto-Generated Log: logs tailing initialized.");
+            }
+        }
+
+        if (!file_exists($filePath)) {
+            CLI::error("Log file not found and could not be auto-generated: log-{$date}.log");
             CLI::write("Make sure logging is enabled in your Config/Logger.php", 'yellow');
             return false;
         }
