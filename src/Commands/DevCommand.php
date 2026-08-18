@@ -596,6 +596,28 @@ class DevCommand extends BaseCommand
                                 $this->killProcess($spec);
                             }
                         }
+                    } elseif ($char === 'h') {
+                        // Creative Diagnostic Dashboard Surprise!
+                        $cores = is_file('/proc/cpuinfo') ? (int) shell_exec('grep -c ^processor /proc/cpuinfo') : 1;
+                        $load = function_exists('sys_getloadavg') ? implode(', ', sys_getloadavg()) : 'N/A';
+                        $freeMem = shell_exec('free -h 2>/dev/null | grep Mem | awk \'{print $4}\'') ?: 'N/A';
+                        $jengoVer = 'v1.0.0 (Base)';
+                        
+                        $diagMsg = "\n\033[1;35m--- JENGO ARCHITECTURE ENGINE DIAGNOSTICS ---\033[0m\n" .
+                                   "  \033[36mOS Kernel:\033[0m     " . php_uname('s') . " (" . php_uname('r') . ")\n" .
+                                   "  \033[36mCPU Cores:\033[0m     {$cores} Core(s) (Load Avg: {$load})\n" .
+                                   "  \033[36mFree memory:\033[0m   " . trim($freeMem) . "\n" .
+                                   "  \033[36mPHP Version:\033[0m   " . PHP_VERSION . " (" . PHP_SAPI . ")\n" .
+                                   "  \033[36mJengo Engine:\033[0m  {$jengoVer}\n" .
+                                   "\033[1;35m---------------------------------------------\033[0m\n";
+
+                        foreach (explode("\n", rtrim($diagMsg)) as $line) {
+                            $logBuffers[$activeTab][] = $line;
+                            if ($activeTab !== -1) {
+                                $logBuffers[-1][] = $line;
+                            }
+                        }
+                        $lastDraw = 0;
                     }
                 }
 
@@ -873,7 +895,7 @@ class DevCommand extends BaseCommand
         }
 
         echo str_repeat("=", $width) . PHP_EOL;
-        echo "\033[1;30;47m Controls: [0/a] Show All | [1-9] Switch Tab | [c] Clear Log | [r] Restart Active | [q] Quit \033[0m" . PHP_EOL;
+        echo "\033[1;30;47m Controls: [0/a] Show All | [1-9] Switch Tab | [c] Clear Log | [r] Restart Active | [h] Diagnostics | [q] Quit \033[0m" . PHP_EOL;
     }
 
     private function getProcessMemory(int $pid): string

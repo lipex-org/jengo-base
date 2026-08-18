@@ -5,9 +5,13 @@ declare(strict_types=1);
 namespace Jengo\Base\Entities;
 
 use CodeIgniter\Entity\Entity;
+use Jengo\Base\Entities\Casts\CastPgBoolean;
 
 class BaseEntity extends Entity
 {
+    protected $castHandlers = [
+        'pg_bool' => CastPgBoolean::class,
+    ];
     /**
      * Fields that should be visible in JSON serialization.
      * If not empty, only these fields will be serialized.
@@ -29,7 +33,7 @@ class BaseEntity extends Entity
      */
     protected function obfuscateValue(int $value): string
     {
-        helper('jengo');
+        helper('\Jengo\Base\Helpers\jengo');
 
         return sqids_hash($value) ?? '';
     }
@@ -39,7 +43,7 @@ class BaseEntity extends Entity
      */
     protected function deobfuscateValue(string $value): ?int
     {
-        helper('jengo');
+        helper('\Jengo\Base\Helpers\jengo');
 
         return sqids_unhash($value);
     }
