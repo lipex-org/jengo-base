@@ -153,7 +153,7 @@ if (!function_exists('isTesting')) {
 
 if (!function_exists('form')) {
     /**
-     * Retrieve the last validated FormHandler instance, or a new instance of a specific class.
+     * Retrieve the last validated FormHandler instance, or resolve it from the caller's #[Validate] attribute.
      *
      * @template T of FormHandler
      * @param class-string<T>|null $handlerClass
@@ -175,6 +175,31 @@ if (!function_exists('form')) {
                 FormHandler::setLastInstance($handler);
 
                 return $handler;
+            }
+        }
+
+        // 2. Check caller's #[Validate] attribute to ensure $last matches the caller method's expected handler
+        $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 5);
+        foreach ($trace as $frame) {
+            if (!empty($frame['class']) && !empty($frame['function']) && method_exists($frame['class'], $frame['function'])) {
+                $refMethod = new \ReflectionMethod($frame['class'], $frame['function']);
+                $attributes = $refMethod->getAttributes(\Jengo\Base\Attributes\Validate::class);
+                if (!empty($attributes)) {
+                    $args = $attributes[0]->getArguments();
+                    $targetClass = $args[0] ?? $args['handlerClass'] ?? null;
+                    if ($targetClass && class_exists($targetClass)) {
+                        if ($last instanceof $targetClass) {
+                            return $last;
+                        }
+
+                        /** @var FormHandler $handler */
+                        $handler = new $targetClass();
+                        $handler->validate();
+                        FormHandler::setLastInstance($handler);
+
+                        return $handler;
+                    }
+                }
             }
         }
 
@@ -228,3 +253,32 @@ if (!function_exists('sqids_unhash')) {
         return empty($decoded) ? null : (int) $decoded[0];
     }
 }
+
+if (!function_exists('response_handler')) {
+    /**
+     * Retrieve the shared ResponseHandler instance.
+     */
+    function response_handler(): \Jengo\Base\Support\ResponseHandler
+    {
+        return \Config\Services::responseHandler();
+    }
+}
+
+if (!function_exists('inertia')) {
+    /**
+     * Creates an Inertia response instance.
+     *
+     * @param string $component JavaScript page component name
+     * @param array<string, mixed> $props Page props
+     * @return mixed
+     */
+    function inertia(string $component, array $props = [])
+    {
+        if (class_exists(\Jengo\Inertia\Inertia::class) && class_exists(\Jengo\Inertia\Config\Services::class)) {
+            return \Jengo\Inertia\Inertia::render($component, $props);
+        }
+
+        return \Jengo\Base\Inertia\Inertia::render($component, $props);
+    }
+}
+

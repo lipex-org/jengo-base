@@ -29,4 +29,22 @@ class Jengo extends BaseConfig
      * @var string[]
      */
     public array $aiTargets = [];
+
+    /**
+     * Inertia configuration options.
+     *
+     * @var array{
+     *     version?: string|int|callable|null,
+     *     rootView?: string,
+     *     sharedProps?: array<string, mixed>|callable|null,
+     *     redirectConversion?: bool,
+     * }
+     */
+    public array $inertia = [
+        'version'            => null,
+        'rootView'           => 'app',
+        'sharedProps'        => null,
+        'redirectConversion' => true,
+    ];
 }
+

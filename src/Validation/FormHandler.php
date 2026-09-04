@@ -10,6 +10,7 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use CodeIgniter\Validation\Validation;
 use Config\Services;
+use Jengo\Base\Contracts\ResponseModifierInterface;
 
 abstract class FormHandler
 {
@@ -22,6 +23,12 @@ abstract class FormHandler
      * Validation messages.
      */
     protected array $messages = [];
+
+    /**
+     * Explicit response modifier class to use for this form handler.
+     * @var class-string<ResponseModifierInterface>|null
+     */
+    protected ?string $modifier = null;
 
     /**
      * Fields that should be deobfuscated using Sqids.
@@ -230,34 +237,47 @@ abstract class FormHandler
     }
 
     /**
-     * Handle failed validation by returning redirect response or JSON response.
-     * @param array $errors
-     * @param IncomingRequest $request
+     * Set a custom response modifier for this form handler instance.
+     *
+     * @param string|ResponseModifierInterface $modifier
+     */
+    public function setModifier(string|ResponseModifierInterface $modifier): self
+    {
+        $this->modifier = is_string($modifier) ? $modifier : get_class($modifier);
+
+        return $this;
+    }
+
+    /**
+     * Get the configured response modifier class name for this form handler.
+     *
+     * @return class-string<ResponseModifierInterface>|null
+     */
+    public function getModifier(): ?string
+    {
+        return $this->modifier;
+    }
+
+    /**
+     * Handle failed validation by delegating to the active or explicit response modifier.
+     *
+     * @param array<string, string> $errors
+     * @param RequestInterface $request
      */
     public function redirectOrJson(array $errors, RequestInterface $request): ResponseInterface
     {
-        // Trigger event to allow other packages (e.g. Inertia) to override the failed response
+        // 1. Trigger read-only event for telemetry/listeners
         $holder = new FormFailedResponseHolder($errors, $request);
         Events::trigger('jengo.form.failed', $holder);
 
+        // If a legacy subscriber explicitly provided a response, respect it
         if ($holder->getResponse() !== null) {
             return $holder->getResponse();
         }
 
-        $isJson = $request->isAJAX() ||
-            str_contains((string) $request->getHeaderLine('Accept'), 'application/json') ||
-            str_contains((string) $request->getHeaderLine('Content-Type'), 'application/json');
-
-        if ($isJson) {
-            return Services::response()
-                ->setJSON([
-                    'status' => 'error',
-                    'message' => 'The given data was invalid.',
-                    'errors' => $errors,
-                ])
-                ->setStatusCode(422);
-        }
-
-        return redirect()->back()->withInput()->with('errors', $errors);
+        // 2. Delegate to ResponseHandler using active or instance-specific modifier
+        return response_handler()->validationFailed($errors, $request, $this->modifier, [
+            'handler' => static::class,
+        ]);
     }
 }

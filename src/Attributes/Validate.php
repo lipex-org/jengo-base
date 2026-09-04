@@ -15,9 +15,11 @@ class Validate implements RouteAttributeInterface
 {
     /**
      * @param class-string<FormHandler> $handlerClass
+     * @param class-string<\Jengo\Base\Contracts\ResponseModifierInterface>|null $modifier
      */
     public function __construct(
-        private readonly string $handlerClass
+        private readonly string $handlerClass,
+        private readonly ?string $modifier = null
     ) {
     }
 
@@ -36,6 +38,10 @@ class Validate implements RouteAttributeInterface
 
         /** @var FormHandler $handler */
         $handler = new $this->handlerClass($request);
+
+        if ($this->modifier !== null) {
+            $handler->setModifier($this->modifier);
+        }
 
         if (!$handler->validate()) {
             return $handler->redirectOrJson($handler->getErrors(), $request);
