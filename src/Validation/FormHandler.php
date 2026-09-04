@@ -127,7 +127,26 @@ abstract class FormHandler
         // Extract groups
         $get = $this->request->getGet() ?? [];
         $post = $this->request->getPost() ?? [];
-        $json = is_array($this->request->getJSON(true)) ? $this->request->getJSON(true) : [];
+        if (empty($post) && ! empty($_POST)) {
+            $post = $_POST;
+        }
+
+        $json = [];
+        $rawBody = (string) $this->request->getBody();
+        if ($rawBody !== '') {
+            $trimmed = trim($rawBody);
+            if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+                try {
+                    $decoded = json_decode($trimmed, true);
+                    if (is_array($decoded)) {
+                        $json = $decoded;
+                    }
+                } catch (\Throwable) {
+                    // Ignore malformed JSON body
+                }
+            }
+        }
+
         $routerData = [];
 
         if (!empty($this->routeParams)) {
@@ -143,7 +162,7 @@ abstract class FormHandler
         // Run validation on flat merged data
         $flatData = array_merge($get, $post, $json, $routerData);
 
-        if (!$this->validator->withRequest($this->request)->run($flatData)) {
+        if (!$this->validator->run($flatData)) {
             $this->errors = $this->validator->getErrors();
             $this->validatedData = null;
 

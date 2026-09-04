@@ -15,7 +15,7 @@ class DevCommand extends BaseCommand
     protected $usage = 'jengo:dev [options]';
 
     protected $options = [
-        '--format' => 'Output format: default, json, compact, tui. Defaults to tui.',
+        '--format' => 'Output format: stream, json, compact, tui. Defaults to stream.',
     ];
 
     /**
@@ -30,6 +30,7 @@ class DevCommand extends BaseCommand
     private static int $colorIdx = 0;
 
     private ?string $originalStty = null;
+    private bool $inAlternateScreen = false;
 
     /**
      * Register a general shell command or initiate a fluent builder.
@@ -123,13 +124,75 @@ class DevCommand extends BaseCommand
         self::$colorIdx = 0;
     }
 
+    /**
+     * Restore terminal cursor, screen buffer, and stty settings.
+     */
+    private function restoreTerminal(): void
+    {
+        // 1. Unconditionally restore cursor visibility
+        echo "\033[?25h";
+
+        // 2. Exit alternate screen buffer if in TUI mode
+        if ($this->inAlternateScreen) {
+            echo "\033[?1049l";
+            $this->inAlternateScreen = false;
+        }
+
+        // 3. Restore stty settings
+        if ($this->originalStty) {
+            @shell_exec('stty ' . escapeshellarg(trim($this->originalStty)) . ' 2>/dev/null');
+            $this->originalStty = null;
+        } else {
+            @shell_exec('stty sane 2>/dev/null || stty echo icanon 2>/dev/null');
+        }
+    }
+
     public function run(array $params)
     {
-        $format = CLI::getOption('format') ?? 'tui';
+        // Default format is 'stream'
+        $format = CLI::getOption('format') ?? 'stream';
+        if ($format === 'default') {
+            $format = 'stream';
+        }
 
-        // Clear terminal screen on startup (unless running tests)
-        if (ENVIRONMENT !== 'testing') {
-            echo "\033[2J\033[H";
+        $activeProcesses = [];
+
+        // Register shutdown hook to guarantee cursor and terminal restoration on exit
+        register_shutdown_function(function () use (&$activeProcesses) {
+            $this->restoreTerminal();
+            if (is_array($activeProcesses)) {
+                foreach ($activeProcesses as $spec) {
+                    if (!empty($spec['process'])) {
+                        $this->killProcess($spec);
+                    }
+                }
+            }
+        });
+
+        // Register async signal handlers if pcntl is available
+        if (function_exists('pcntl_async_signals')) {
+            pcntl_async_signals(true);
+            $exitHandler = function () use (&$activeProcesses) {
+                $this->restoreTerminal();
+                if (is_array($activeProcesses)) {
+                    foreach ($activeProcesses as $spec) {
+                        if (!empty($spec['process'])) {
+                            $this->killProcess($spec);
+                        }
+                    }
+                }
+                exit(0);
+            };
+
+            if (defined('SIGINT')) {
+                @pcntl_signal(SIGINT, $exitHandler);
+            }
+            if (defined('SIGTERM')) {
+                @pcntl_signal(SIGTERM, $exitHandler);
+            }
+            if (defined('SIGHUP')) {
+                @pcntl_signal(SIGHUP, $exitHandler);
+            }
         }
 
         $commandsToRun = [];
@@ -205,7 +268,6 @@ class DevCommand extends BaseCommand
             CLI::write("Executing sequential startup tasks...", 'yellow');
             foreach ($sequentialTasks as $seqSpec) {
                 CLI::write("Running [{$seqSpec['label']}]: {$seqSpec['command']} ...", 'cyan');
-                // Run synchronously
                 passthru($seqSpec['command'], $exitCode);
                 if ($exitCode !== 0) {
                     CLI::error("Sequential task [{$seqSpec['label']}] failed with exit code {$exitCode}. Aborting dev startup.");
@@ -261,7 +323,7 @@ class DevCommand extends BaseCommand
      */
     private function killProcess(array $spec): void
     {
-        if (!is_resource($spec['process'])) {
+        if (!isset($spec['process']) || !is_resource($spec['process'])) {
             return;
         }
 
@@ -270,12 +332,12 @@ class DevCommand extends BaseCommand
             $pid = (int) $status['pid'];
             if (function_exists('posix_kill')) {
                 // Send TERM to process group (using negative PID kills parent and grandchildren)
-                posix_kill(-$pid, SIGTERM);
+                @posix_kill(-$pid, SIGTERM);
             }
         }
 
-        proc_terminate($spec['process']);
-        proc_close($spec['process']);
+        @proc_terminate($spec['process']);
+        @proc_close($spec['process']);
     }
 
     /**
@@ -297,8 +359,6 @@ class DevCommand extends BaseCommand
 
         try {
             foreach ($commandsToRun as $index => $cmdSpec) {
-                // If this task depends on other active tasks, wait until they start/exit, or let it start.
-                // In standard concurrent mode we start everything but handle dependencies via status checks.
                 $processes[$index] = [
                     'process' => null,
                     'label' => $cmdSpec['label'],
@@ -357,7 +417,7 @@ class DevCommand extends BaseCommand
                         }
                     }
                 }
-                unset($spec); // Clean up reference
+                unset($spec);
 
                 // 2. Read output streams
                 $read = [];
@@ -414,7 +474,6 @@ class DevCommand extends BaseCommand
                         continue;
                     }
 
-                    // Check filesystem watching
                     if (!empty($spec['watch'])) {
                         $currentHash = $this->getWatchState($spec['watch']);
                         if ($currentHash !== $spec['watch_hash']) {
@@ -422,7 +481,7 @@ class DevCommand extends BaseCommand
                             $this->killProcess($spec);
 
                             $processes[$index]['watch_hash'] = $currentHash;
-                            $processes[$index]['restart_count'] = 0; // Reset restart count for watch events
+                            $processes[$index]['restart_count'] = 0;
 
                             $process = proc_open($spec['command'], $descriptors, $processPipes, ROOTPATH);
                             if (is_resource($process)) {
@@ -486,8 +545,9 @@ class DevCommand extends BaseCommand
                 }
             }
         } finally {
+            $this->restoreTerminal();
             foreach ($processes as $spec) {
-                if ($spec['process']) {
+                if (!empty($spec['process'])) {
                     $this->killProcess($spec);
                 }
             }
@@ -512,23 +572,122 @@ class DevCommand extends BaseCommand
     }
 
     /**
-     * Interactive Terminal UI (TUI) Dashboard
+     * Reads a single key or ANSI escape sequence from non-blocking STDIN.
+     */
+    private function readKey(): ?string
+    {
+        $c = fread(STDIN, 1);
+        if ($c === false || $c === '') {
+            return null;
+        }
+
+        if ($c === "\033") {
+            // Escape sequence (e.g. arrow keys, page up/down)
+            $seq = fread(STDIN, 4);
+            if ($seq === '[A') return 'UP';
+            if ($seq === '[B') return 'DOWN';
+            if ($seq === '[C') return 'RIGHT';
+            if ($seq === '[D') return 'LEFT';
+            if ($seq === '[5~') return 'PAGE_UP';
+            if ($seq === '[6~') return 'PAGE_DOWN';
+            if ($seq === '[H' || $seq === '[1~') return 'HOME';
+            if ($seq === '[F' || $seq === '[4~') return 'END';
+            return 'ESC';
+        }
+
+        return $c;
+    }
+
+    /**
+     * Wrap ANSI text lines cleanly across terminal width without cutting off characters.
+     *
+     * @return string[]
+     */
+    private function wrapAnsiText(string $text, int $width): array
+    {
+        if ($width <= 15) {
+            return [$text];
+        }
+
+        $plain = preg_replace('/\e\[[0-9;]*m/', '', $text);
+        if (mb_strwidth($plain) <= $width) {
+            return [$text];
+        }
+
+        $wrapped = [];
+        $words = explode(' ', $text);
+        $currentLine = '';
+        $currentPlainLen = 0;
+
+        foreach ($words as $word) {
+            $wordPlain = preg_replace('/\e\[[0-9;]*m/', '', $word);
+            $wordLen = mb_strwidth($wordPlain);
+
+            if ($currentPlainLen === 0) {
+                if ($wordLen > $width) {
+                    $chars = mb_str_split($word);
+                    $chunk = '';
+                    $chunkLen = 0;
+                    foreach ($chars as $char) {
+                        $cLen = mb_strwidth($char);
+                        if ($chunkLen + $cLen > $width) {
+                            $wrapped[] = $chunk;
+                            $chunk = '  ↳ ' . $char;
+                            $chunkLen = 4 + $cLen;
+                        } else {
+                            $chunk .= $char;
+                            $chunkLen += $cLen;
+                        }
+                    }
+                    if ($chunk !== '') {
+                        $currentLine = $chunk;
+                        $currentPlainLen = $chunkLen;
+                    }
+                } else {
+                    $currentLine = $word;
+                    $currentPlainLen = $wordLen;
+                }
+            } else {
+                if ($currentPlainLen + 1 + $wordLen <= $width) {
+                    $currentLine .= ' ' . $word;
+                    $currentPlainLen += 1 + $wordLen;
+                } else {
+                    $wrapped[] = $currentLine;
+                    $currentLine = '  ↳ ' . $word;
+                    $currentPlainLen = 4 + $wordLen;
+                }
+            }
+        }
+
+        if ($currentLine !== '') {
+            $wrapped[] = $currentLine;
+        }
+
+        return $wrapped;
+    }
+
+    /**
+     * Interactive Terminal UI (TUI) Dashboard with smooth double-buffering, text wrapping, and scrolling.
      */
     private function runTui(array $commandsToRun)
     {
-        $this->originalStty = shell_exec('stty -g');
-        shell_exec('stty -icanon -echo');
+        $this->originalStty = shell_exec('stty -g 2>/dev/null');
+        @shell_exec('stty -icanon -echo 2>/dev/null');
         stream_set_blocking(STDIN, false);
 
-        echo "\033[?25l"; // Hide cursor
+        // Enter Alternate Screen Buffer and hide cursor
+        echo "\033[?1049h\033[?25l\033[2J\033[H";
+        $this->inAlternateScreen = true;
 
         $processes = [];
         $pipes = [];
         $logBuffers = [];
+        $scrollOffsets = [];
         $activeTab = -1;
-        $maxBufferLines = 80;
+        $maxBufferLines = 2000;
 
         $logBuffers[-1] = [];
+        $scrollOffsets[-1] = 0;
 
         $descriptors = [
             0 => ['pipe', 'r'],
@@ -549,9 +708,12 @@ class DevCommand extends BaseCommand
                     'watch_hash' => !empty($cmdSpec['watch']) ? $this->getWatchState($cmdSpec['watch']) : '',
                     'depends_on' => $cmdSpec['depends_on'],
                     'status' => !empty($cmdSpec['depends_on']) ? 'pending' : 'running',
+                    'cached_mem' => 'N/A',
+                    'last_mem_check' => 0,
                 ];
 
                 $logBuffers[$index] = [];
+                $scrollOffsets[$index] = 0;
 
                 if ($processes[$index]['status'] === 'running') {
                     $process = proc_open($cmdSpec['command'], $descriptors, $processPipes, ROOTPATH);
@@ -562,62 +724,97 @@ class DevCommand extends BaseCommand
                         $pipes[$index * 2] = $processPipes[1];
                         $pipes[$index * 2 + 1] = $processPipes[2];
                     } else {
-                        $msg = "Failed to start process: [{$cmdSpec['label']}]";
-                        $logBuffers[-1][] = "\033[1;31m[system]\033[0m {$msg}";
+                        $msg = "\033[1;31m[system]\033[0m Failed to start process: [{$cmdSpec['label']}]";
+                        $logBuffers[-1][] = $msg;
                     }
                 }
             }
 
             $lastDraw = 0;
-            echo "\033[2J\033[H";
+            $needsRedraw = true;
+
+            // Dimensions cache to avoid spawning shell_exec on every frame
+            $termWidth = 80;
+            $termHeight = 24;
+            $lastDimCheck = 0;
 
             while (!empty($processes)) {
-                // Keystrokes
-                $char = fread(STDIN, 1);
-                if ($char !== false && $char !== '') {
-                    if ($char === 'q') {
+                $now = microtime(true);
+
+                // Update terminal dimensions every 1 second
+                if ($now - $lastDimCheck > 1.0) {
+                    $cols = (int) @shell_exec('tput cols 2>/dev/null');
+                    $lines = (int) @shell_exec('tput lines 2>/dev/null');
+                    if ($cols > 10) $termWidth = $cols;
+                    if ($lines > 5) $termHeight = $lines;
+                    $lastDimCheck = $now;
+                }
+
+                // Keystroke processing
+                $key = $this->readKey();
+                if ($key !== null) {
+                    $needsRedraw = true;
+
+                    if ($key === 'q') {
                         break;
-                    } elseif ($char === 'a' || $char === '0') {
+                    } elseif ($key === 'a' || $key === '0') {
                         $activeTab = -1;
-                        $lastDraw = 0;
-                    } elseif (is_numeric($char)) {
-                        $idx = (int) $char - 1;
+                    } elseif (is_numeric($key)) {
+                        $idx = (int) $key - 1;
                         if (isset($processes[$idx])) {
                             $activeTab = $idx;
-                            $lastDraw = 0;
                         }
-                    } elseif ($char === 'c') {
+                    } elseif ($key === 'c') {
                         $logBuffers[$activeTab] = [];
-                        $lastDraw = 0;
-                    } elseif ($char === 'r') {
+                        $scrollOffsets[$activeTab] = 0;
+                    } elseif ($key === 'r') {
                         if ($activeTab >= 0 && isset($processes[$activeTab])) {
                             $spec = $processes[$activeTab];
                             if ($spec['process'] && is_resource($spec['process'])) {
                                 $this->killProcess($spec);
                             }
                         }
-                    } elseif ($char === 'h') {
-                        // Creative Diagnostic Dashboard Surprise!
-                        $cores = is_file('/proc/cpuinfo') ? (int) shell_exec('grep -c ^processor /proc/cpuinfo') : 1;
+                    } elseif ($key === 'UP' || $key === 'k') {
+                        // Scroll up 1 line
+                        $scrollOffsets[$activeTab] = ($scrollOffsets[$activeTab] ?? 0) + 1;
+                    } elseif ($key === 'DOWN' || $key === 'j') {
+                        // Scroll down 1 line
+                        $scrollOffsets[$activeTab] = max(0, ($scrollOffsets[$activeTab] ?? 0) - 1);
+                    } elseif ($key === 'PAGE_UP' || $key === 'u') {
+                        // Scroll up half page
+                        $scrollOffsets[$activeTab] = ($scrollOffsets[$activeTab] ?? 0) + max(1, (int) floor($termHeight / 2));
+                    } elseif ($key === 'PAGE_DOWN' || $key === 'd') {
+                        // Scroll down half page
+                        $scrollOffsets[$activeTab] = max(0, ($scrollOffsets[$activeTab] ?? 0) - max(1, (int) floor($termHeight / 2)));
+                    } elseif ($key === 'HOME' || $key === 'g') {
+                        // Scroll to top
+                        $scrollOffsets[$activeTab] = count($logBuffers[$activeTab] ?? []);
+                    } elseif ($key === 'END' || $key === 'G') {
+                        // Jump to bottom (live stream)
+                        $scrollOffsets[$activeTab] = 0;
+                    } elseif ($key === 'h') {
+                        $cores = is_file('/proc/cpuinfo') ? (int) @shell_exec('grep -c ^processor /proc/cpuinfo 2>/dev/null') : 1;
                         $load = function_exists('sys_getloadavg') ? implode(', ', sys_getloadavg()) : 'N/A';
-                        $freeMem = shell_exec('free -h 2>/dev/null | grep Mem | awk \'{print $4}\'') ?: 'N/A';
+                        $freeMem = @shell_exec('free -h 2>/dev/null | grep Mem | awk \'{print $4}\'') ?: 'N/A';
                         $jengoVer = 'v1.0.0 (Base)';
-                        
+
                         $diagMsg = "\n\033[1;35m--- JENGO ARCHITECTURE ENGINE DIAGNOSTICS ---\033[0m\n" .
                                    "  \033[36mOS Kernel:\033[0m     " . php_uname('s') . " (" . php_uname('r') . ")\n" .
                                    "  \033[36mCPU Cores:\033[0m     {$cores} Core(s) (Load Avg: {$load})\n" .
-                                   "  \033[36mFree memory:\033[0m   " . trim($freeMem) . "\n" .
+                                   "  \033[36mFree memory:\033[0m   " . trim((string) $freeMem) . "\n" .
                                    "  \033[36mPHP Version:\033[0m   " . PHP_VERSION . " (" . PHP_SAPI . ")\n" .
                                    "  \033[36mJengo Engine:\033[0m  {$jengoVer}\n" .
                                    "\033[1;35m---------------------------------------------\033[0m\n";
 
                         foreach (explode("\n", rtrim($diagMsg)) as $line) {
-                            $logBuffers[$activeTab][] = $line;
-                            if ($activeTab !== -1) {
-                                $logBuffers[-1][] = $line;
+                            $wrappedLines = $this->wrapAnsiText($line, $termWidth);
+                            foreach ($wrappedLines as $wLine) {
+                                $logBuffers[$activeTab][] = $wLine;
+                                if ($activeTab !== -1) {
+                                    $logBuffers[-1][] = $wLine;
+                                }
                             }
                         }
-                        $lastDraw = 0;
                     }
                 }
 
@@ -649,13 +846,13 @@ class DevCommand extends BaseCommand
                                 $logBuffers[-1][] = $msg;
                                 unset($processes[$index]);
                             }
-                            $lastDraw = 0;
+                            $needsRedraw = true;
                         }
                     }
                 }
                 unset($spec);
 
-                // Output Streams
+                // Read output streams
                 $read = [];
                 foreach ($pipes as $k => $p) {
                     if (is_resource($p)) {
@@ -669,7 +866,7 @@ class DevCommand extends BaseCommand
                 $except = null;
 
                 if (!empty($read)) {
-                    if (stream_select($read, $write, $except, 0, 50000) > 0) {
+                    if (stream_select($read, $write, $except, 0, 30000) > 0) {
                         foreach ($read as $pipe) {
                             $pipeKey = array_search($pipe, $pipes, true);
                             if ($pipeKey === false) {
@@ -683,7 +880,7 @@ class DevCommand extends BaseCommand
                                 continue;
                             }
 
-                            $data = fread($pipe, 4096);
+                            $data = fread($pipe, 8192);
                             if ($data === false || $data === '') {
                                 fclose($pipe);
                                 unset($pipes[$pipeKey]);
@@ -698,20 +895,25 @@ class DevCommand extends BaseCommand
                                 }
 
                                 $formattedLine = "\033[1;{$spec['color']}m[{$spec['label']}]\033[0m " . $line;
-                                $logBuffers[$index][] = $formattedLine;
-                                $logBuffers[-1][] = $formattedLine;
+                                $wrappedLines = $this->wrapAnsiText($formattedLine, $termWidth);
 
-                                if (count($logBuffers[$index]) > $maxBufferLines) {
-                                    array_shift($logBuffers[$index]);
-                                }
-                                if (count($logBuffers[-1]) > $maxBufferLines) {
-                                    array_shift($logBuffers[-1]);
+                                foreach ($wrappedLines as $wLine) {
+                                    $logBuffers[$index][] = $wLine;
+                                    $logBuffers[-1][] = $wLine;
+
+                                    if (count($logBuffers[$index]) > $maxBufferLines) {
+                                        array_shift($logBuffers[$index]);
+                                    }
+                                    if (count($logBuffers[-1]) > $maxBufferLines) {
+                                        array_shift($logBuffers[-1]);
+                                    }
                                 }
                             }
+                            $needsRedraw = true;
                         }
                     }
                 } else {
-                    usleep(50000);
+                    usleep(30000);
                 }
 
                 // File Watcher & Exits
@@ -729,7 +931,7 @@ class DevCommand extends BaseCommand
 
                             $this->killProcess($spec);
                             $processes[$index]['watch_hash'] = $currentHash;
-                            $processes[$index]['restart_count'] = 0; // Reset restart count for watching restart events
+                            $processes[$index]['restart_count'] = 0;
 
                             $process = proc_open($spec['command'], $descriptors, $processPipes, ROOTPATH);
                             if (is_resource($process)) {
@@ -745,7 +947,7 @@ class DevCommand extends BaseCommand
                                 $logBuffers[-1][] = $msg;
                                 unset($processes[$index]);
                             }
-                            $lastDraw = 0;
+                            $needsRedraw = true;
                             continue;
                         }
                     }
@@ -764,8 +966,11 @@ class DevCommand extends BaseCommand
                                     foreach ($lines as $line) {
                                         if ($line !== '') {
                                             $formattedLine = "\033[1;{$spec['color']}m[{$spec['label']}]\033[0m " . $line;
-                                            $logBuffers[$index][] = $formattedLine;
-                                            $logBuffers[-1][] = $formattedLine;
+                                            $wrappedLines = $this->wrapAnsiText($formattedLine, $termWidth);
+                                            foreach ($wrappedLines as $wLine) {
+                                                $logBuffers[$index][] = $wLine;
+                                                $logBuffers[-1][] = $wLine;
+                                            }
                                         }
                                     }
                                 }
@@ -804,41 +1009,46 @@ class DevCommand extends BaseCommand
                             $logBuffers[-1][] = $msg;
                             unset($processes[$index]);
                         }
-                        $lastDraw = 0;
+                        $needsRedraw = true;
                     }
                 }
 
-                // Refresh TUI
-                $now = microtime(true);
-                if ($now - $lastDraw > 0.15) {
-                    $this->drawDashboard($processes, $logBuffers, $activeTab);
+                // Smooth Double-Buffered Dashboard Render (throttled to ~10 FPS or when dirty)
+                if ($needsRedraw || ($now - $lastDraw > 0.1)) {
+                    $this->drawDashboard($processes, $logBuffers, $scrollOffsets, $activeTab, $termWidth, $termHeight);
                     $lastDraw = $now;
+                    $needsRedraw = false;
                 }
             }
         } finally {
-            if ($this->originalStty) {
-                shell_exec('stty ' . $this->originalStty);
-            }
-            echo "\033[?25h"; // Restore cursor
+            $this->restoreTerminal();
 
             foreach ($processes as $spec) {
-                if ($spec['process']) {
+                if (!empty($spec['process'])) {
                     $this->killProcess($spec);
                 }
             }
-            echo "\033[2J\033[H";
         }
     }
 
-    private function drawDashboard(array $processes, array $logBuffers, int $activeTab): void
-    {
-        $width = (int) shell_exec('tput cols') ?: 80;
-        $height = (int) shell_exec('tput lines') ?: 24;
+    /**
+     * Renders the full TUI frame in a single atomic string to eliminate screen flickering.
+     */
+    private function drawDashboard(
+        array &$processes,
+        array $logBuffers,
+        array &$scrollOffsets,
+        int $activeTab,
+        int $width,
+        int $height
+    ): void {
+        $frame = [];
 
-        echo "\033[H";
+        // 1. Title bar
+        $titleText = " JENGO DEVELOPMENT CONSOLE ";
+        $frame[] = "\033[1;36m" . str_pad($titleText, max(1, $width), "=", STR_PAD_BOTH) . "\033[0m\033[K";
 
-        echo "\033[1;36m" . str_pad(" JENGO DEVELOPMENT CONSOLE ", $width, "=", STR_PAD_BOTH) . "\033[0m" . PHP_EOL;
-
+        // 2. Tabs bar
         $tabs = [];
         $allSelected = ($activeTab === -1) ? "\033[1;30;42m [0: All] \033[0m" : "\033[1;37m [0: All] \033[0m";
         $tabs[] = $allSelected;
@@ -848,54 +1058,79 @@ class DevCommand extends BaseCommand
             $selected = ($activeTab === $idx) ? "\033[1;30;42m [{$key}: {$spec['label']}] \033[0m" : "\033[1;37m [{$key}: {$spec['label']}] \033[0m";
             $tabs[] = $selected;
         }
-        echo implode(" ", $tabs) . PHP_EOL;
-        echo str_repeat("-", $width) . PHP_EOL;
+        $frame[] = implode(" ", $tabs) . "\033[K";
+        $frame[] = str_repeat("-", max(1, $width)) . "\033[K";
 
+        // 3. Process Status / Memory summary
         if ($activeTab >= 0 && isset($processes[$activeTab])) {
-            $spec = $processes[$activeTab];
-            $pid = 0;
-            if ($spec['process']) {
-                $statusInfo = proc_get_status($spec['process']);
-                $pid = $statusInfo ? (int) $statusInfo['pid'] : 0;
+            $spec = &$processes[$activeTab];
+            $now = microtime(true);
+            if ($now - ($spec['last_mem_check'] ?? 0) > 2.0) {
+                $pid = 0;
+                if ($spec['process']) {
+                    $statusInfo = proc_get_status($spec['process']);
+                    $pid = $statusInfo ? (int) $statusInfo['pid'] : 0;
+                }
+                $spec['cached_mem'] = $this->getProcessMemory($pid);
+                $spec['last_mem_check'] = $now;
             }
-            $mem = $this->getProcessMemory($pid);
+            $mem = $spec['cached_mem'] ?? 'N/A';
             $restartStr = $spec['restart_count'] > 0 ? " (Restarts: {$spec['restart_count']})" : "";
-            echo "Active Process: \033[1;{$spec['color']}m{$spec['label']}\033[0m | Status: {$spec['status']}{$restartStr} | Mem: {$mem}" . PHP_EOL;
+            $frame[] = "Active: \033[1;{$spec['color']}m{$spec['label']}\033[0m | Status: {$spec['status']}{$restartStr} | Mem: {$mem}\033[K";
+            unset($spec);
         } else {
             $summary = [];
             foreach ($processes as $spec) {
                 $statusColor = $spec['status'] === 'running' ? '32' : '31';
                 $summary[] = "\033[1;{$spec['color']}m{$spec['label']}\033[0m: \033[{$statusColor}m{$spec['status']}\033[0m";
             }
-            echo "Processes Summary: " . implode(" | ", $summary) . PHP_EOL;
+            $frame[] = "Processes: " . implode(" | ", $summary) . "\033[K";
         }
-        echo str_repeat("-", $width) . PHP_EOL;
+        $frame[] = str_repeat("-", max(1, $width)) . "\033[K";
 
-        $headerHeight = 6;
-        $footerHeight = 3;
-        $logWindowHeight = $height - $headerHeight - $footerHeight;
-        if ($logWindowHeight < 2) {
-            $logWindowHeight = 2;
-        }
+        // 4. Calculate exact visible log height to strictly fit within terminal height
+        $headerLinesCount = 5;
+        $footerLinesCount = 2;
+        $logWindowHeight = max(2, $height - $headerLinesCount - $footerLinesCount);
 
         $activeLogs = $logBuffers[$activeTab] ?? [];
-        $linesToDraw = array_slice($activeLogs, -$logWindowHeight);
+        $totalLogs = count($activeLogs);
 
+        // Calculate bounded scroll offset
+        $offset = $scrollOffsets[$activeTab] ?? 0;
+        $maxOffset = max(0, $totalLogs - $logWindowHeight);
+        $offset = max(0, min($offset, $maxOffset));
+        $scrollOffsets[$activeTab] = $offset;
+
+        if ($offset === 0) {
+            $linesToDraw = array_slice($activeLogs, -$logWindowHeight);
+        } else {
+            $linesToDraw = array_slice($activeLogs, -($logWindowHeight + $offset), $logWindowHeight);
+        }
+
+        // Pad empty lines if logs are fewer than logWindowHeight
         while (count($linesToDraw) < $logWindowHeight) {
             $linesToDraw[] = '';
         }
 
+        // Draw log lines with clear-to-eol (\033[K)
         foreach ($linesToDraw as $line) {
-            $plainLine = preg_replace('/\e\[[0-9;]*m/', '', $line);
-            if (strlen($plainLine) > $width) {
-                echo substr($line, 0, $width + (strlen($line) - strlen($plainLine))) . PHP_EOL;
-            } else {
-                echo str_pad($line, $width) . PHP_EOL;
-            }
+            $frame[] = $line . "\033[K";
         }
 
-        echo str_repeat("=", $width) . PHP_EOL;
-        echo "\033[1;30;47m Controls: [0/a] Show All | [1-9] Switch Tab | [c] Clear Log | [r] Restart Active | [h] Diagnostics | [q] Quit \033[0m" . PHP_EOL;
+        // 5. Footer & Controls Bar
+        $frame[] = str_repeat("=", max(1, $width)) . "\033[K";
+
+        $scrollIndicator = "";
+        if ($offset > 0) {
+            $scrollIndicator = "\033[1;33m[SCROLL: -{$offset} lines | Press End/G for live]\033[0m ";
+        }
+
+        $controlsText = "{$scrollIndicator}\033[1;30;47m [0/a] All | [1-9] Tab | [↑/↓, u/d] Scroll | [c] Clear | [r] Restart | [h] Diag | [q] Quit \033[0m\033[K";
+        $frame[] = $controlsText;
+
+        // Atomic output with cursor at home position (0,0) without trailing newline to avoid auto-scroll
+        echo "\033[H" . implode("\n", $frame);
     }
 
     private function getProcessMemory(int $pid): string
@@ -903,7 +1138,7 @@ class DevCommand extends BaseCommand
         if ($pid <= 0) {
             return 'N/A';
         }
-        $output = shell_exec("ps -p {$pid} -o rss=");
+        $output = @shell_exec("ps -p {$pid} -o rss= 2>/dev/null");
         if ($output) {
             $kb = (int) trim($output);
             if ($kb > 1024) {

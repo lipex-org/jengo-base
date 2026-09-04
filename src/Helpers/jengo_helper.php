@@ -161,11 +161,45 @@ if (!function_exists('form')) {
      */
     function form(?string $handlerClass = null): ?FormHandler
     {
+        // 1. Inspect caller method's #[Validate] attribute if $handlerClass is not passed
         if ($handlerClass === null) {
-            return FormHandler::getLastInstance();
+            $trace = debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 3);
+            foreach ($trace as $caller) {
+                if (isset($caller['class'], $caller['function']) && method_exists($caller['class'], $caller['function'])) {
+                    $ref = new \ReflectionMethod($caller['class'], $caller['function']);
+                    $attrs = $ref->getAttributes(\Jengo\Base\Attributes\Validate::class);
+                    if (!empty($attrs)) {
+                        $attrInstance = $attrs[0]->newInstance();
+                        $refClass = new \ReflectionClass($attrInstance);
+                        if ($refClass->hasProperty('handlerClass')) {
+                            $prop = $refClass->getProperty('handlerClass');
+                            $prop->setAccessible(true);
+                            $handlerClass = $prop->getValue($attrInstance);
+                            break;
+                        }
+                    }
+                }
+            }
         }
 
-        return new $handlerClass();
+        $last = FormHandler::getLastInstance();
+
+        if ($handlerClass !== null) {
+            if ($last instanceof $handlerClass) {
+                return $last;
+            }
+
+            if (class_exists($handlerClass)) {
+                /** @var FormHandler $handler */
+                $handler = new $handlerClass();
+                $handler->validate();
+                FormHandler::setLastInstance($handler);
+
+                return $handler;
+            }
+        }
+
+        return $last;
     }
 }
 
