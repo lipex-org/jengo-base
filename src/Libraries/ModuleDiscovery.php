@@ -155,8 +155,8 @@ class ModuleDiscovery
 return {$exported};
 PHP;
 
-        // Atomic file write using a temp file
-        $tempFile = tempnam(sys_get_temp_dir(), 'jengo_modules_cache_');
+        // Atomic file write using a temp file in the same directory
+        $tempFile = $cacheDir . '/modules.php.tmp.' . bin2hex(random_bytes(8));
         file_put_contents($tempFile, $content);
         rename($tempFile, $cacheFile);
     }
