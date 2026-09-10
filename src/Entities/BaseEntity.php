@@ -6,9 +6,13 @@ namespace Jengo\Base\Entities;
 
 use CodeIgniter\Entity\Entity;
 use Jengo\Base\Entities\Casts\CastPgBoolean;
+use Jengo\Base\Mapping\Contracts\MappableInterface;
+use Jengo\Base\Traits\MappableTrait;
 
-class BaseEntity extends Entity
+class BaseEntity extends Entity implements MappableInterface
 {
+    use MappableTrait;
+
     protected $castHandlers = [
         'pg_bool' => CastPgBoolean::class,
     ];
