@@ -1,6 +1,6 @@
 {
   "name": "jengo/base",
-  "description": "Core package of the Jengo framework. Integrates Vite, static Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, dynamic module autoloading, and fluent array/string wrappers.",
+  "description": "Core package of the Jengo framework. Integrates Vite, static & fluent Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, dynamic module autoloading, fluent array/string wrappers, bidirectional data mapping, and modern developer ergonomics.",
   "models": [
     {
       "class": "Jengo\\Base\\Entities\\BaseEntity",
@@ -16,9 +16,62 @@
   "facades": [
     {
       "class": "Jengo\\Base\\Facades\\ModelFacade",
-      "description": "Allows Laravel-like static querying (where, find, first, etc.) over standard CI4 models.",
+      "description": "Allows fluent and static querying over standard CI4 models, supporting findOrFail, firstOrFail, when, unless, tap, and pipe.",
       "helper": "model_of(string $modelClass)",
-      "usage": "$user = model_of(UserModel::class)::where('email', $email)->first();"
+      "methods": {
+        "findOrFail": "findOrFail(mixed $id): array|object (finds record by primary key or throws PageNotFoundException)",
+        "firstOrFail": "firstOrFail(): array|object (finds first matched record or throws PageNotFoundException)",
+        "when": "when(mixed $value, callable $callback, ?callable $default = null): static (applies callback if value is truthy)",
+        "unless": "unless(mixed $value, callable $callback, ?callable $default = null): static (applies callback if value is falsy)",
+        "tap": "tap(callable $callback): static (executes callback passing the model facade instance)",
+        "pipe": "pipe(callable $callback): mixed (pipes the model facade instance to a callback and returns the result)"
+      },
+      "usage": "$user = model_of(UserModel::class)->where('email', $email)->firstOrFail();"
+    },
+    {
+      "class": "Jengo\\Base\\Facades\\Request",
+      "description": "Static facade providing type-safe inputs, validation, and request inspection.",
+      "methods": {
+        "all": "all(): array (returns merged GET, POST, and JSON body parameters)",
+        "input": "input(?string $key = null, mixed $default = null): mixed (retrieves single input or all inputs)",
+        "boolean": "boolean(string $key, bool $default = false): bool (casts input to boolean: 1/0, true/false, 'yes'/'no', 'on')",
+        "integer": "integer(string $key, int $default = 0): int (casts input to integer)",
+        "float": "float(string $key, float $default = 0.0): float (casts input to float)",
+        "date": "date(string $key, ?string $format = null, ?string $timezone = null): ?CodeIgniter\\I18n\\Time (casts input to Time instance)",
+        "bearerToken": "bearerToken(): ?string (retrieves Bearer token from Authorization header)",
+        "only": "only(array $keys): array (retrieves only specified input keys)",
+        "except": "except(array $keys): array (retrieves all inputs except specified keys)",
+        "has": "has(string|array $keys): bool (checks if input keys are present)",
+        "filled": "filled(string|array $keys): bool (checks if input keys are present and not empty)",
+        "missing": "missing(string|array $keys): bool (checks if input keys are missing)",
+        "validate": "validate(array $rules, bool $redirect = true): bool|array (runs validation rules, redirects back with errors on failure or returns error array)"
+      },
+      "usage": "$email = Request::input('email'); if (Request::boolean('is_active')) { ... }"
+    }
+  ],
+  "mapping": [
+    {
+      "class": "Jengo\\Base\\Mapping\\Mapper",
+      "description": "High-performance bidirectional entity and DTO mapper powered by PHP 8 attributes.",
+      "helpers": {
+        "map_to": "map_to(object|array $source, string $targetClass): object",
+        "collect_to": "collect_to(iterable $collection, string $targetClass): array"
+      },
+      "attributes": [
+        {
+          "class": "Jengo\\Base\\Mapping\\Attributes\\MapFrom",
+          "description": "Maps target property from a different source key or nested dot-notation path."
+        },
+        {
+          "class": "Jengo\\Base\\Mapping\\Attributes\\MapSource",
+          "description": "Class-level attribute configuring the default source class and mapping behavior."
+        },
+        {
+          "class": "Jengo\\Base\\Mapping\\Attributes\\NestedCast",
+          "description": "Specifies nested entity or collection hydration types for property transformation."
+        }
+      ],
+      "usage": "$dto = map_to($userEntity, UserDto::class);\n$dtos = collect_to($users, UserDto::class);"
     }
   ],
   "validation": [
@@ -65,12 +118,6 @@
       "usage": "#[Validate(StoreUserForm::class)]\npublic function store() { $data = form()->validated(); }"
     }
   ],
-  "attributes": [
-    {
-      "class": "Jengo\\Base\\Attributes\\API",
-      "description": "Controller class or method Attribute that wraps output into a standardized JSON response envelope containing status, message, data, or errors."
-    }
-  ],
   "events": [
     {
       "name": "jengo.form.failed",
@@ -89,21 +136,33 @@
   "libraries": [
     {
       "class": "Jengo\\Base\\Libraries\\Arr",
-      "description": "Fluent wrapper for array manipulation.",
-      "helper": "arr(array|Entity $array): Arr",
+      "description": "Fluent wrapper for array manipulation, supporting conditionals, pipes, wrapping, and transformations.",
+      "helper": "arr(mixed $value = []): Arr",
+      "methods": {
+        "wrap": "Arr::wrap(mixed $value): array (wraps value in an array if not null and not already an array)",
+        "when": "when(mixed $value, callable $callback, ?callable $default = null): static",
+        "unless": "unless(mixed $value, callable $callback, ?callable $default = null): static",
+        "pipe": "pipe(callable $callback): mixed"
+      },
       "usage": "$names = arr($users)->map(fn($u) => $u['name'])->toArray();"
     },
     {
       "class": "Jengo\\Base\\Libraries\\Str",
-      "description": "Fluent wrapper for string manipulation, slugging, random generators, casing, and search.",
-      "helper": "str(string $value): Str",
+      "description": "Fluent wrapper for string manipulation, slugging, random generators, casing, search, and conditional pipeline.",
+      "helper": "str(?string $value = null): Str|string",
+      "methods": {
+        "of": "Str::of(string $value): Str (alias of Str::set)",
+        "when": "when(mixed $value, callable $callback, ?callable $default = null): static",
+        "unless": "unless(mixed $value, callable $callback, ?callable $default = null): static",
+        "tap": "tap(callable $callback): static"
+      },
       "usage": "$slug = str('My Title')->kebab()->toString();"
     }
   ],
   "modules": [
     {
       "class": "Jengo\\Base\\Libraries\\ModuleDiscovery",
-      "description": "Scans root modules/ directory recursively to find Jengo modules containing a Module.php marker, registering their PSR-4 namespaces on the CodeIgniter autoloader dynamically or from cache. \n You can use the spark command `jengo:make module` to create a new module from the CLI",
+      "description": "Scans root modules/ directory recursively to find Jengo modules containing a Module.php marker, registering their PSR-4 namespaces on the CodeIgniter autoloader dynamically or from cache.",
       "methods": {
         "discoverAndRegister": "discoverAndRegister(): void (boots and registers modules namespaces)",
         "discover": "discover(): array (gets cached or live scanned list of module namespaces)",
@@ -113,6 +172,101 @@
     }
   ],
   "helpers": [
+    {
+      "name": "tap",
+      "signature": "tap(mixed $value, ?callable $callback = null): mixed",
+      "description": "Call the given Closure with the given value then return the value, or return a HigherOrderTapProxy if no callback is passed."
+    },
+    {
+      "name": "value",
+      "signature": "value(mixed $value, mixed ...$args): mixed",
+      "description": "Return the default value of the given value. Resolves Closures with optional arguments."
+    },
+    {
+      "name": "rescue",
+      "signature": "rescue(callable $callback, mixed $fallback = null, bool|array|string $report = true): mixed",
+      "description": "Catch an exception and return a fallback value, with optional error reporting."
+    },
+    {
+      "name": "retry",
+      "signature": "retry(int $times, callable $callback, int|\\Closure $sleepMilliseconds = 0, ?callable $when = null): mixed",
+      "description": "Retry an operation a given number of times before throwing an exception."
+    },
+    {
+      "name": "blank",
+      "signature": "blank(mixed $value): bool",
+      "description": "Determine if the given value is 'blank' (null, whitespace string, empty array, or empty Countable)."
+    },
+    {
+      "name": "filled",
+      "signature": "filled(mixed $value): bool",
+      "description": "Determine if the given value is not 'blank'."
+    },
+    {
+      "name": "data_get",
+      "signature": "data_get(mixed $target, string|array|int|null $key, mixed $default = null): mixed",
+      "description": "Get an item from an array or object using dot notation and asterisk wildcards."
+    },
+    {
+      "name": "data_set",
+      "signature": "data_set(mixed &$target, string|array $key, mixed $value, bool $overwrite = true): mixed",
+      "description": "Set an item on an array or object using dot notation."
+    },
+    {
+      "name": "head",
+      "signature": "head(array $array): mixed",
+      "description": "Get the first element of an array."
+    },
+    {
+      "name": "last",
+      "signature": "last(array $array): mixed",
+      "description": "Get the last element of an array."
+    },
+    {
+      "name": "str",
+      "signature": "str(?string $string = null): Jengo\\Base\\Libraries\\Str|string",
+      "description": "Get a fluent Str instance or format string directly."
+    },
+    {
+      "name": "arr",
+      "signature": "arr(mixed $value = []): Jengo\\Base\\Libraries\\Arr",
+      "description": "Get a fluent Arr instance from an array, entity, or iterable."
+    },
+    {
+      "name": "now",
+      "signature": "now(?string $timezone = null): CodeIgniter\\I18n\\Time",
+      "description": "Create a new Time instance for the current time."
+    },
+    {
+      "name": "today",
+      "signature": "today(?string $timezone = null): CodeIgniter\\I18n\\Time",
+      "description": "Create a new Time instance for the start of today."
+    },
+    {
+      "name": "flash",
+      "signature": "flash(?string $key = null, mixed $value = null): mixed",
+      "description": "Retrieve or set flashdata in session, or return the session service."
+    },
+    {
+      "name": "logger",
+      "signature": "logger(?string $message = null, string $level = 'info', array $context = []): mixed",
+      "description": "Log a message or retrieve the logger service instance."
+    },
+    {
+      "name": "info",
+      "signature": "info(string $message, array $context = []): void",
+      "description": "Write an informational log message."
+    },
+    {
+      "name": "warning",
+      "signature": "warning(string $message, array $context = []): void",
+      "description": "Write a warning log message."
+    },
+    {
+      "name": "error",
+      "signature": "error(string $message, array $context = []): void",
+      "description": "Write an error log message."
+    },
     {
       "name": "form",
       "signature": "form(?string $handlerClass = null): ?FormHandler",
@@ -146,6 +300,18 @@
   ],
   "commands": [
     {
+      "name": "jengo:kit",
+      "description": "Inspect installation and integration status across all ecosystem packages (api, auth, broadcasting, storage, ai, pdf, inertia, schema, vite-plugin)."
+    },
+    {
+      "name": "jengo:setup",
+      "description": "Bootstraps framework subsystems. Supports 'jengo:setup api', 'jengo:setup auth', 'jengo:setup shield-auth', etc."
+    },
+    {
+      "name": "jengo:dev",
+      "description": "Runs configured development processes (like Vite and custom dev tasks) concurrently in a single terminal with interactive TUI."
+    },
+    {
       "name": "jengo:make form",
       "description": "Generate a FormHandler class."
     },
@@ -174,10 +340,6 @@
       "description": "Compiles Jengo package capabilities for AI coding assistants."
     },
     {
-      "name": "jengo:setup",
-      "description": "Configures views, layouts, pages, and partial folders."
-    },
-    {
       "name": "jengo:health",
       "description": "Runs application health status checks."
     },
@@ -190,8 +352,8 @@
       "description": "Clear Jengo compiled module cache."
     },
     {
-      "name": "jengo:dev",
-      "description": "Runs configured development processes (like Vite and custom dev tasks) concurrently in a single terminal."
+      "name": "jengo:log:tail",
+      "description": "Tails application logs in real-time with filtering options by level and search pattern."
     }
   ]
 }
