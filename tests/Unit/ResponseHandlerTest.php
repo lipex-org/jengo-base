@@ -33,6 +33,22 @@ class CustomApiModifier implements ResponseModifierInterface
     }
 }
 
+if (!class_exists(TestFormHandler::class, false)) {
+    class TestFormHandler extends FormHandler
+    {
+        protected array $rules = [
+            'name' => 'required|min_length[3]',
+            'email' => 'required|valid_email',
+        ];
+
+        protected array $messages = [
+            'name' => [
+                'required' => 'The name is required.',
+            ],
+        ];
+    }
+}
+
 final class ResponseHandlerTest extends CIUnitTestCase
 {
     protected function setUp(): void
@@ -41,10 +57,16 @@ final class ResponseHandlerTest extends CIUnitTestCase
         helper('Jengo\Base\Helpers\jengo');
     }
 
+    protected function tearDown(): void
+    {
+        Services::reset(true);
+        parent::tearDown();
+    }
+
     private function createRequest(array $headers = []): IncomingRequest
     {
         $config = new App();
-        $uri = new URI('http://example.com/test');
+        $uri = Services::uri();
         $userAgent = new UserAgent();
         $request = new IncomingRequest($config, $uri, 'php://input', $userAgent);
 

@@ -113,15 +113,179 @@ class Request
     }
 
     /**
-     * Retrieves a single input value from the current request, supporting all input types
-     * (GET, POST, JSON, etc.).
+     * Retrieves all input values or a single input value from the current request.
      *
-     * @param string $key The input key to retrieve.
-     *
-     * @return mixed The value associated with the input key, or null if not found.
+     * @param string|null $key The input key to retrieve.
+     * @param mixed $default Fallback value if key is not found.
+     * @return mixed The value associated with the input key, or all inputs.
      */
-    public static function input(string $key)
+    public static function input(?string $key = null, mixed $default = null): mixed
     {
-        return request()->getVar($key);
+        if ($key === null) {
+            return static::all();
+        }
+
+        $val = request()->getVar($key);
+
+        if ($val !== null) {
+            return $val;
+        }
+
+        return data_get(static::all(), $key, $default);
+    }
+
+    /**
+     * Get all of the input and files for the request.
+     */
+    public static function all(): array
+    {
+        $request = request();
+        $json = $request->getJSON(true);
+
+        if (is_array($json) && !empty($json)) {
+            return array_merge($request->getGet(), $json);
+        }
+
+        return array_merge($request->getGet(), $request->getPost());
+    }
+
+    /**
+     * Retrieve input as a boolean value.
+     */
+    public static function boolean(string $key, bool $default = false): bool
+    {
+        $val = static::input($key);
+
+        if ($val === null) {
+            return $default;
+        }
+
+        return filter_var($val, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Retrieve input as an integer value.
+     */
+    public static function integer(string $key, int $default = 0): int
+    {
+        $val = static::input($key);
+
+        return $val !== null ? (int) $val : $default;
+    }
+
+    /**
+     * Retrieve input as a float value.
+     */
+    public static function float(string $key, float $default = 0.0): float
+    {
+        $val = static::input($key);
+
+        return $val !== null ? (float) $val : $default;
+    }
+
+    /**
+     * Retrieve input as a CodeIgniter Time date instance.
+     */
+    public static function date(string $key, ?string $format = null, ?string $timezone = null): ?\CodeIgniter\I18n\Time
+    {
+        $val = static::input($key);
+
+        if (blank($val)) {
+            return null;
+        }
+
+        if ($format !== null) {
+            return \CodeIgniter\I18n\Time::createFromFormat($format, (string) $val, $timezone);
+        }
+
+        return \CodeIgniter\I18n\Time::parse((string) $val, $timezone);
+    }
+
+    /**
+     * Retrieve the Bearer token from the request Authorization header.
+     */
+    public static function bearerToken(): ?string
+    {
+        $header = request()->getHeaderLine('Authorization');
+
+        if (str_starts_with($header, 'Bearer ')) {
+            return trim(substr($header, 7));
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a subset containing the provided keys with values from the input data.
+     */
+    public static function only(array|string ...$keys): array
+    {
+        $keys = is_array($keys[0] ?? null) ? $keys[0] : $keys;
+        $all = static::all();
+        $results = [];
+
+        foreach ($keys as $key) {
+            if (array_key_exists($key, $all)) {
+                $results[$key] = $all[$key];
+            }
+        }
+
+        return $results;
+    }
+
+    /**
+     * Get all of the input except for a specified array of items.
+     */
+    public static function except(array|string ...$keys): array
+    {
+        $keys = is_array($keys[0] ?? null) ? $keys[0] : $keys;
+        $all = static::all();
+
+        foreach ($keys as $key) {
+            unset($all[$key]);
+        }
+
+        return $all;
+    }
+
+    /**
+     * Determine if the request contains a given input item key.
+     */
+    public static function has(string|array $keys): bool
+    {
+        $keys = (array) $keys;
+        $all = static::all();
+
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $all) && request()->getVar($key) === null) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine if the request contains a non-empty value for an input item.
+     */
+    public static function filled(string|array $keys): bool
+    {
+        $keys = (array) $keys;
+
+        foreach ($keys as $key) {
+            if (blank(static::input($key))) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Determine if the request is missing a given input item key.
+     */
+    public static function missing(string|array $keys): bool
+    {
+        return !static::has($keys);
     }
 }

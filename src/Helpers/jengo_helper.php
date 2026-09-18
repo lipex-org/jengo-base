@@ -282,3 +282,369 @@ if (!function_exists('inertia')) {
     }
 }
 
+if (!function_exists('value')) {
+    /**
+     * Return the default value of the given value.
+     */
+    function value(mixed $value, mixed ...$args): mixed
+    {
+        return $value instanceof \Closure ? $value(...$args) : $value;
+    }
+}
+
+if (!function_exists('tap')) {
+    /**
+     * Call the given Closure with the given value then return the value.
+     */
+    function tap(mixed $value, ?callable $callback = null): mixed
+    {
+        if ($callback === null) {
+            return new \Jengo\Base\Support\HigherOrderTapProxy($value);
+        }
+
+        $callback($value);
+
+        return $value;
+    }
+}
+
+if (!function_exists('rescue')) {
+    /**
+     * Catch a potential exception and return a default value.
+     */
+    function rescue(callable $callback, mixed $rescue = null, bool $report = true): mixed
+    {
+        try {
+            return $callback();
+        } catch (\Throwable $e) {
+            if ($report) {
+                try {
+                    log_message('error', $e->getMessage(), ['exception' => $e]);
+                } catch (\Throwable) {
+                    // Ignore reporting failure
+                }
+            }
+
+            return value($rescue, $e);
+        }
+    }
+}
+
+if (!function_exists('retry')) {
+    /**
+     * Retry an operation a given number of times.
+     */
+    function retry(int $times, callable $callback, int $sleepMilliseconds = 0, ?callable $when = null): mixed
+    {
+        $attempts = 0;
+        $backoff = $sleepMilliseconds;
+
+        while ($attempts < $times) {
+            $attempts++;
+
+            try {
+                return $callback($attempts);
+            } catch (\Throwable $e) {
+                if ($attempts >= $times || ($when !== null && !$when($e))) {
+                    throw $e;
+                }
+
+                if ($backoff > 0) {
+                    usleep($backoff * 1000);
+                }
+            }
+        }
+
+        throw new \RuntimeException('Retry attempts exhausted.');
+    }
+}
+
+if (!function_exists('blank')) {
+    /**
+     * Determine if the given value is "blank".
+     */
+    function blank(mixed $value): bool
+    {
+        if ($value === null) {
+            return true;
+        }
+
+        if (is_string($value)) {
+            return trim($value) === '';
+        }
+
+        if (is_numeric($value) || is_bool($value)) {
+            return false;
+        }
+
+        if ($value instanceof \Countable) {
+            return count($value) === 0;
+        }
+
+        if ($value instanceof \Stringable) {
+            return trim((string) $value) === '';
+        }
+
+        return empty($value);
+    }
+}
+
+if (!function_exists('filled')) {
+    /**
+     * Determine if a value is not "blank".
+     */
+    function filled(mixed $value): bool
+    {
+        return !blank($value);
+    }
+}
+
+if (!function_exists('data_get')) {
+    /**
+     * Get an item from an array or object using "dot" notation.
+     */
+    function data_get(mixed $target, string|array|int|null $key, mixed $default = null): mixed
+    {
+        if ($key === null || $key === '') {
+            return $target;
+        }
+
+        $segments = is_array($key) ? $key : explode('.', (string) $key);
+
+        if (empty($segments)) {
+            return $target;
+        }
+
+        foreach ($segments as $i => $segment) {
+            unset($segments[$i]);
+
+            if ($segment === null) {
+                return $target;
+            }
+
+            if ($segment === '*') {
+                if (!is_iterable($target)) {
+                    return value($default);
+                }
+
+                $result = [];
+
+                foreach ($target as $item) {
+                    $result[] = data_get($item, $segments);
+                }
+
+                return in_array('*', $segments, true) ? \Jengo\Base\Libraries\Arr::set($result)->collapse()->toArray() : $result;
+            }
+
+            if (is_array($target) && array_key_exists($segment, $target)) {
+                $target = $target[$segment];
+            } elseif (is_object($target)) {
+                if ($target instanceof \ArrayAccess && $target->offsetExists($segment)) {
+                    $target = $target[$segment];
+                } elseif (isset($target->{$segment})) {
+                    $target = $target->{$segment};
+                } elseif (property_exists($target, (string) $segment)) {
+                    $target = $target->{$segment};
+                } elseif (method_exists($target, (string) $segment)) {
+                    $target = $target->{$segment}();
+                } else {
+                    return value($default);
+                }
+            } else {
+                return value($default);
+            }
+        }
+
+        return $target;
+    }
+}
+
+if (!function_exists('data_set')) {
+    /**
+     * Set an item on an array or object using dot notation.
+     */
+    function data_set(mixed &$target, string|array $key, mixed $value, bool $overwrite = true): mixed
+    {
+        $segments = is_array($key) ? $key : explode('.', (string) $key);
+
+        if (empty($segments)) {
+            return $target;
+        }
+
+        $segment = array_shift($segments);
+
+        if ($segment === '*') {
+            if (!is_array($target)) {
+                $target = [];
+            }
+
+            if ($segments) {
+                foreach ($target as &$item) {
+                    data_set($item, $segments, $value, $overwrite);
+                }
+            } elseif ($overwrite) {
+                foreach ($target as &$item) {
+                    $item = $value;
+                }
+            }
+        } elseif (is_array($target)) {
+            if ($segments) {
+                if (!array_key_exists($segment, $target) || !is_array($target[$segment])) {
+                    $target[$segment] = [];
+                }
+
+                data_set($target[$segment], $segments, $value, $overwrite);
+            } elseif ($overwrite || !array_key_exists($segment, $target)) {
+                $target[$segment] = $value;
+            }
+        } elseif (is_object($target)) {
+            if ($segments) {
+                if (!isset($target->{$segment}) || !is_object($target->{$segment})) {
+                    $target->{$segment} = new \stdClass();
+                }
+
+                data_set($target->{$segment}, $segments, $value, $overwrite);
+            } elseif ($overwrite || !isset($target->{$segment})) {
+                $target->{$segment} = $value;
+            }
+        } else {
+            $target = [];
+
+            if ($segments) {
+                $target[$segment] = [];
+                data_set($target[$segment], $segments, $value, $overwrite);
+            } elseif ($overwrite) {
+                $target[$segment] = $value;
+            }
+        }
+
+        return $target;
+    }
+}
+
+if (!function_exists('head')) {
+    /**
+     * Get the first element of an array.
+     */
+    function head(array $array): mixed
+    {
+        return reset($array);
+    }
+}
+
+if (!function_exists('last')) {
+    /**
+     * Get the last element of an array.
+     */
+    function last(array $array): mixed
+    {
+        return end($array);
+    }
+}
+
+if (!function_exists('str')) {
+    /**
+     * Create a fluent String instance.
+     */
+    function str(?string $string = null): \Jengo\Base\Libraries\Str
+    {
+        return \Jengo\Base\Libraries\Str::set($string ?? '');
+    }
+}
+
+if (!function_exists('arr')) {
+    /**
+     * Create a fluent Array instance.
+     */
+    function arr(array|\CodeIgniter\Entity\Entity $data = []): \Jengo\Base\Libraries\Arr
+    {
+        return \Jengo\Base\Libraries\Arr::set($data);
+    }
+}
+
+if (!function_exists('now')) {
+    /**
+     * Create a new Time instance for the current date and time.
+     */
+    function now(?string $timezone = null): \CodeIgniter\I18n\Time
+    {
+        return \CodeIgniter\I18n\Time::now($timezone);
+    }
+}
+
+if (!function_exists('today')) {
+    /**
+     * Create a new Time instance for the start of today.
+     */
+    function today(?string $timezone = null): \CodeIgniter\I18n\Time
+    {
+        return \CodeIgniter\I18n\Time::today($timezone);
+    }
+}
+
+if (!function_exists('flash')) {
+    /**
+     * Retrieve or set session flash data.
+     */
+    function flash(?string $key = null, mixed $value = null): mixed
+    {
+        $session = \Config\Services::session();
+
+        if ($key === null) {
+            return $session;
+        }
+
+        if ($value !== null) {
+            $session->setFlashdata($key, $value);
+            return null;
+        }
+
+        return $session->getFlashdata($key);
+    }
+}
+
+if (!function_exists('logger')) {
+    /**
+     * Log a message or retrieve the logger service instance.
+     */
+    function logger(?string $message = null, string $level = 'info', array $context = []): mixed
+    {
+        if ($message === null) {
+            return \Config\Services::logger();
+        }
+
+        log_message($level, $message, $context);
+        return null;
+    }
+}
+
+if (!function_exists('info')) {
+    /**
+     * Write an informational log message.
+     */
+    function info(string $message, array $context = []): void
+    {
+        log_message('info', $message, $context);
+    }
+}
+
+if (!function_exists('warning')) {
+    /**
+     * Write a warning log message.
+     */
+    function warning(string $message, array $context = []): void
+    {
+        log_message('warning', $message, $context);
+    }
+}
+
+if (!function_exists('error')) {
+    /**
+     * Write an error log message.
+     */
+    function error(string $message, array $context = []): void
+    {
+        log_message('error', $message, $context);
+    }
+}
+

@@ -73,32 +73,153 @@ use RuntimeException;
 
 class ModelFacade
 {
-    protected static string $class;
+    protected ?CI4Model $modelInstance = null;
+    protected ?string $modelClass = null;
+    protected static ?string $staticClass = null;
 
-    public function __construct(string $model)
+    public function __construct(string|CI4Model $model)
     {
-        static::$class = $model;
+        if (is_string($model)) {
+            $this->modelClass = $model;
+        } else {
+            $this->modelInstance = $model;
+            $this->modelClass = get_class($model);
+        }
+
+        static::$staticClass = $this->modelClass;
+    }
+
+    protected function getModel(): CI4Model
+    {
+        if ($this->modelInstance !== null) {
+            return $this->modelInstance;
+        }
+
+        if (!class_exists($this->modelClass ?? '')) {
+            throw new RuntimeException("Class [{$this->modelClass}] is undefined");
+        }
+
+        $instance = new ($this->modelClass)();
+
+        if (!($instance instanceof CI4Model)) {
+            throw new RuntimeException("Class must extend CI4's Model class");
+        }
+
+        return $this->modelInstance = $instance;
     }
 
     protected static function instance(): CI4Model
     {
-        if (!class_exists(class: self::$class)) {
+        if (!class_exists(static::$staticClass ?? '')) {
             throw new RuntimeException("Class is undefined");
         }
 
-        $instance = new (self::$class)();
+        $instance = new (static::$staticClass)();
 
-        if(!($instance instanceof CI4Model)) {
-            throw new RuntimeException("Class must extend ci4's Model class");
+        if (!($instance instanceof CI4Model)) {
+            throw new RuntimeException("Class must extend CI4's Model class");
         }
 
         return $instance;
     }
 
-    public static function __callStatic($method, $args)
+    /**
+     * Find a record by its primary key or throw a PageNotFoundException.
+     */
+    public function findOrFail(int|string $id): mixed
     {
-        $instance = self::instance();
+        $result = $this->getModel()->find($id);
 
-        return $instance->$method(...$args);
+        if ($result === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                sprintf('Record [%s] not found for model [%s].', (string) $id, $this->modelClass ?? 'Model')
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Execute the query and get the first result or throw a PageNotFoundException.
+     */
+    public function firstOrFail(): mixed
+    {
+        $result = $this->getModel()->first();
+
+        if ($result === null) {
+            throw \CodeIgniter\Exceptions\PageNotFoundException::forPageNotFound(
+                sprintf('No records found for model [%s].', $this->modelClass ?? 'Model')
+            );
+        }
+
+        return $result;
+    }
+
+    /**
+     * Apply the callback if the given value is truthy.
+     */
+    public function when(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if ($val) {
+            $callback($this, $val);
+        } elseif ($default !== null) {
+            $default($this, $val);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Apply the callback if the given value is falsy.
+     */
+    public function unless(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if (!$val) {
+            $callback($this, $val);
+        } elseif ($default !== null) {
+            $default($this, $val);
+        }
+
+        return $this;
+    }
+
+    /**
+     * Pass the facade to the given callback and return the facade.
+     */
+    public function tap(callable $callback): static
+    {
+        $callback($this);
+
+        return $this;
+    }
+
+    /**
+     * Pass the facade to the given callback and return the result.
+     */
+    public function pipe(callable $callback): mixed
+    {
+        return $callback($this);
+    }
+
+    public function __call(string $method, array $args): mixed
+    {
+        $result = $this->getModel()->$method(...$args);
+
+        if ($result === $this->getModel()) {
+            return $this;
+        }
+
+        return $result;
+    }
+
+    public static function __callStatic(string $method, array $args): mixed
+    {
+        $facade = new static(static::$staticClass ?? '');
+
+        return $facade->__call($method, $args);
     }
 }

@@ -686,4 +686,64 @@ class Arr implements JsonSerializable
     {
         return $this->toArray();
     }
+
+    /**
+     * If the given value is not an array and not null, wrap it in one.
+     */
+    public static function wrap(mixed $value): array
+    {
+        if ($value === null) {
+            return [];
+        }
+
+        return is_array($value) ? $value : [$value];
+    }
+
+    /**
+     * Apply the callback if the given value is truthy.
+     */
+    public function when(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if ($val) {
+            $result = $callback($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        if ($default !== null) {
+            $result = $default($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Apply the callback if the given value is falsy.
+     */
+    public function unless(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if (!$val) {
+            $result = $callback($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        if ($default !== null) {
+            $result = $default($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Pass the collection to the given callback and return the result.
+     */
+    public function pipe(callable $callback): mixed
+    {
+        return $callback($this);
+    }
 }

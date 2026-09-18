@@ -10,6 +10,7 @@ use Faker\Generator;
 final class UserModel extends Model
 {
     protected $table = 'users';
+    protected $allowedFields = ['name'];
 
     public function fake(Generator &$faker)
     {

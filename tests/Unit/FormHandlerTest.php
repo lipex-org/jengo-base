@@ -15,18 +15,20 @@ use Config\Services;
 use Jengo\Base\Attributes\Validate;
 use Jengo\Base\Validation\FormHandler;
 
-class TestFormHandler extends FormHandler
-{
-    protected array $rules = [
-        'name' => 'required|min_length[3]',
-        'email' => 'required|valid_email',
-    ];
+if (!class_exists(TestFormHandler::class, false)) {
+    class TestFormHandler extends FormHandler
+    {
+        protected array $rules = [
+            'name' => 'required|min_length[3]',
+            'email' => 'required|valid_email',
+        ];
 
-    protected array $messages = [
-        'name' => [
-            'required' => 'The name is required.',
-        ]
-    ];
+        protected array $messages = [
+            'name' => [
+                'required' => 'The name is required.',
+            ]
+        ];
+    }
 }
 
 class InvalidFormHandler

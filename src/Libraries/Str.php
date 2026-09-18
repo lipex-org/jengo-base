@@ -28,6 +28,14 @@ class Str
     }
 
     /**
+     * Alias for set().
+     */
+    public static function of(string $value): static
+    {
+        return static::set($value);
+    }
+
+    /**
      * Generate a random, secure string of a given length.
      */
     public static function random(int $length = 16): string
@@ -513,5 +521,55 @@ class Str
     public function explode(string $delimiter): array
     {
         return explode($delimiter, $this->value);
+    }
+
+    /**
+     * Apply the callback if the given value is truthy.
+     */
+    public function when(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if ($val) {
+            $result = $callback($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        if ($default !== null) {
+            $result = $default($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Apply the callback if the given value is falsy.
+     */
+    public function unless(mixed $value, callable $callback, ?callable $default = null): static
+    {
+        $val = value($value);
+
+        if (!$val) {
+            $result = $callback($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        if ($default !== null) {
+            $result = $default($this, $val);
+            return $result instanceof static ? $result : $this;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Call the given Closure with this instance then return the instance.
+     */
+    public function tap(callable $callback): static
+    {
+        $callback($this);
+
+        return $this;
     }
 }
