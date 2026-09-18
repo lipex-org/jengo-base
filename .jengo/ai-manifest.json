@@ -301,7 +301,7 @@
   "commands": [
     {
       "name": "jengo:kit",
-      "description": "Inspect installation and integration status across all ecosystem packages (api, auth, broadcasting, storage, ai, pdf, inertia, schema, vite-plugin)."
+      "description": "Inspect installation and integration status across all ecosystem packages (api, auth, broadcasting, storage, notifications, ai, pdf, inertia, schema, vite-plugin)."
     },
     {
       "name": "jengo:setup",

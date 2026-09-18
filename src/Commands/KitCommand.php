@@ -48,6 +48,12 @@ class KitCommand extends BaseCommand
                 'composer' => 'jengo/storage',
                 'class' => 'Jengo\\Storage\\Config\\Services',
             ],
+            'notifications' => [
+                'name' => 'jengo/notifications',
+                'description' => 'Multi-channel notification delivery engine (Email, SMS, Push, Database, Webhooks, Slack, Broadcast).',
+                'composer' => 'jengo/notifications',
+                'class' => 'Jengo\\Notifications\\Config\\Services',
+            ],
             'ai' => [
                 'name' => 'jengo/ai',
                 'description' => 'Multi-provider LLM client supporting Gemini, OpenAI, Claude, Groq, Ollama, and tool calling.',
