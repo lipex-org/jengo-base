@@ -1,0 +1,158 @@
+<?php
+
+declare(strict_types=1);
+
+namespace Jengo\Base\Setups;
+
+use CodeIgniter\CLI\CLI;
+
+class ShieldAuthSetup extends AbstractSetup
+{
+    public static function name(): string
+    {
+        return 'shield-auth';
+    }
+
+    public static function title(): string
+    {
+        return 'THE SHIELD GATEKEEPER';
+    }
+
+    public static function description(): string
+    {
+        return 'Setup CodeIgniter Shield with Jengo Blueprint styling';
+    }
+
+    public function setup(): void
+    {
+        $this->renderHeader(self::title(), self::description());
+        $isInertia = CLI::getOption('inertia');
+
+        // 1. Ensure Shield is installed
+        if (!$this->ensurePackage('codeigniter4/shield')) {
+            return;
+        }
+
+        // Publish Shield Config
+        $this->copy([
+            VENDORPATH . 'codeigniter4/shield/src/Config/Auth.php' => 'app/Config/Auth.php',
+            VENDORPATH . 'codeigniter4/shield/src/Config/AuthToken.php' => 'app/Config/AuthToken.php',
+        ]);
+
+        // 3. Publish Jengo Auth Stubs
+        CLI::write('  ' . CLI::color('●', 'light_cyan') . ' Publishing Jengo Auth components...');
+
+        if ($isInertia) {
+            // Publish authentication actions
+            $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Authentication/', 'app/Authentication');
+
+            // Configs
+            $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Config/Inertia', 'app/Config');
+
+            // Controllers
+            $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Controllers', 'app/Controllers');
+        } else {
+            $this->publish(__DIR__ . '/../Publisher/Stubs/Auth/Config/Default', 'app/Config');
+        }
+
+        // 4. Update Configs
+        $this->updateAuthConfig();
+        $this->updateAuthTokenConfig();
+        $this->updateEmailConfig();
+        $this->updateSecurityConfig();
+        $this->addHelperToAutoload([
+            'CodeIgniter\Settings\Helpers\setting',
+            'CodeIgniter\Shield\Helpers\auth',
+        ]);
+
+        CLI::newLine();
+        CLI::write('  ' . CLI::color('✔', 'green') . ' Shield suite configured successfully.');
+        CLI::write('  ' . CLI::color('●', 'yellow') . ' Note: Remember to run migrations to set up Shield tables.');
+    }
+
+    protected function updateAuthConfig(): void
+    {
+        $path = APPPATH . 'Config/Auth.php';
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        // Fix Namespace and Extension
+        $content = str_replace('namespace CodeIgniter\Shield\Config;', "namespace Config;\n\nuse CodeIgniter\Shield\Config\Auth as ShieldAuth;", $content);
+        $content = str_replace('class Auth extends BaseConfig', 'class Auth extends ShieldAuth', $content);
+
+        // Update Redirects
+        $redirects = "public array \$redirects = [
+        'register'          => 'dashboard',
+        'login'             => 'dashboard',
+        'logout'            => 'login',
+        'force_reset'       => '/',
+        'permission_denied' => '/',
+        'group_denied'      => '/',
+        'registerOnDisable' => '/'
+    ];";
+
+        $content = preg_replace('/public array \$redirects = \[.*?\];/s', $redirects, $content);
+
+        // Add registerRedirectOnDisable method
+        $method = "\n    /**\n     * Returns the URL the user should be redirected to\n     * if registration is disabled.\n     */\n    public function registerRedirectOnDisable(): string\n    {\n        \$url = setting('Auth.redirects')['registerOnDisable'];\n\n        return \$this->getUrl(\$url);\n    }\n";
+
+        if (!str_contains($content, 'function registerRedirectOnDisable')) {
+            $content = str_replace('protected function getUrl', $method . "\n    protected function getUrl", $content);
+        }
+
+        $this->writeFile($path, $content);
+
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/Auth.php redirects and views.', 'dark_gray');
+    }
+
+    protected function updateAuthTokenConfig(): void
+    {
+        $path = APPPATH . 'Config/AuthToken.php';
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        // Fix Namespace and Extension
+        $content = str_replace('namespace CodeIgniter\Shield\Config;', "namespace Config;\n\nuse CodeIgniter\Shield\Config\AuthToken as ShieldAuthToken;", $content);
+        $content = str_replace('class AuthToken extends BaseAuthToken', 'class AuthToken extends ShieldAuthToken', $content);
+
+        $this->writeFile($path, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/AuthToken.php namespace and extension.', 'dark_gray');
+    }
+
+    protected function updateEmailConfig(): void
+    {
+        $path = APPPATH . 'Config/Email.php';
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        $content = preg_replace('/(\$fromEmail\s*=\s*)([\'"].*?[\'"])/', '$1\'test@jengo.com\'', $content);
+        $content = preg_replace('/(\$fromName\s*=\s*)([\'"].*?[\'"])/', '$1\'Jengo\'', $content);
+
+        $this->writeFile($path, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/Email.php fromEmail and fromName.', 'dark_gray');
+    }
+
+    protected function updateSecurityConfig(): void
+    {
+        $path = APPPATH . 'Config/Security.php';
+        if (!file_exists($path)) {
+            return;
+        }
+
+        $content = file_get_contents($path);
+
+        $content = preg_replace('/(\$csrfProtection\s*=\s*)([\'"].*?[\'"])/', '$1\'session\'', $content);
+
+        $this->writeFile($path, $content);
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated Config/Security.php csrfProtection to session.', 'dark_gray');
+    }
+}

@@ -3,7 +3,7 @@
 namespace Jengo\Base\Facades;
 
 use CodeIgniter\HTTP\Response;
-use Jengo\Core\Exceptions\InterruptExecutionException;
+use Jengo\Base\Exceptions\InterruptExecutionException;
 
 /**
  * Class Request
@@ -78,7 +78,7 @@ class Request
      * @param array $rules Validation rules in the format accepted by CodeIgniter's validator.
      * @param bool $redirect Flag whether to perform a redirect after validation fails.
      *
-     * @throws \Jengo\Core\Exceptions\InterruptExecutionException If validation fails and redirect is permitted.
+     * @throws \Jengo\Base\Exceptions\InterruptExecutionException If validation fails and redirect is permitted.
      *
      * @return bool|array
      *         Returns true if validation passes.

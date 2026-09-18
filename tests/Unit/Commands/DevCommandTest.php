@@ -206,7 +206,7 @@ final class DevCommandTest extends CommandTestCase
         $this->assertNotNull($output);
     }
 
-    public function testDefaultsToStreamFormatWhenNoOptionProvided(): void
+    public function testDefaultsToTuiFormatWhenNoOptionProvided(): void
     {
         $logger = \Config\Services::logger();
         $runner = \Config\Services::commands();
@@ -218,7 +218,7 @@ final class DevCommandTest extends CommandTestCase
         $optionsProperty->setAccessible(true);
         $optionsProperty->setValue(null, []);
 
-        DevCommand::register('echo "unspecified format output"', 'StreamTask', '32');
+        DevCommand::register('echo "unspecified format output"', 'TuiTask', '32');
 
         ob_start();
         $command->run([]);
@@ -226,9 +226,33 @@ final class DevCommandTest extends CommandTestCase
 
         $output = $this->io->getOutput() . $captured;
 
-        // When no format option is provided, it uses 'stream' format output
+        // When no format option is provided, it uses 'tui' format output
+        $this->assertStringContainsString('JENGO DEVELOPMENT CONSOLE', $output);
+        $this->assertStringContainsString('[TuiTask]', $output);
+        $this->assertStringContainsString('unspecified format output', $output);
+    }
+
+    public function testRunsStreamFormatWhenExplicitlyProvided(): void
+    {
+        $logger = \Config\Services::logger();
+        $runner = \Config\Services::commands();
+        $command = new DevCommand($logger, $runner);
+
+        $reflection = new \ReflectionClass(\CodeIgniter\CLI\CLI::class);
+        $optionsProperty = $reflection->getProperty('options');
+        $optionsProperty->setAccessible(true);
+        $optionsProperty->setValue(null, ['format' => 'stream']);
+
+        DevCommand::register('echo "stream output"', 'StreamTask', '32');
+
+        ob_start();
+        $command->run([]);
+        $captured = ob_get_clean();
+
+        $output = $this->io->getOutput() . $captured;
+
         $this->assertStringContainsString('Starting dev processes concurrently [Format: stream]...', $output);
         $this->assertStringContainsString('[StreamTask]', $output);
-        $this->assertStringContainsString('unspecified format output', $output);
+        $this->assertStringContainsString('stream output', $output);
     }
 }

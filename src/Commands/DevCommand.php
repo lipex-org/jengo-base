@@ -15,7 +15,7 @@ class DevCommand extends BaseCommand
     protected $usage = 'jengo:dev [options]';
 
     protected $options = [
-        '--format' => 'Output format: stream, json, compact, tui. Defaults to stream.',
+        '--format' => 'Output format: stream, json, compact, tui. Defaults to tui.',
     ];
 
     /**
@@ -149,10 +149,10 @@ class DevCommand extends BaseCommand
 
     public function run(array $params)
     {
-        // Default format is 'stream'
-        $format = CLI::getOption('format') ?? 'stream';
+        // Default format is 'tui'
+        $format = CLI::getOption('format') ?? 'tui';
         if ($format === 'default') {
-            $format = 'stream';
+            $format = 'tui';
         }
 
         $activeProcesses = [];

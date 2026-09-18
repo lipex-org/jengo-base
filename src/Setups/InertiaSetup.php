@@ -52,6 +52,6 @@ class InertiaSetup extends AbstractSetup
             $args[] = "--pm={$pm}";
         }
 
-        $this->call('jengo:install', $args);
+        $this->command('jengo:install', $args);
     }
 }

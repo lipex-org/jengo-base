@@ -117,4 +117,13 @@ final class ResponseHandlerTest extends CIUnitTestCase
         $this->assertFalse($body['success']);
         $this->assertArrayHasKey('name', $body['api_errors']);
     }
+
+    public function testRequestValidateThrowsInterruptExecutionException(): void
+    {
+        $this->expectException(\Jengo\Base\Exceptions\InterruptExecutionException::class);
+
+        \Jengo\Base\Facades\Request::validate([
+            'required_field' => 'required',
+        ], true);
+    }
 }

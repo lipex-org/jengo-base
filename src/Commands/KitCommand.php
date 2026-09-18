@@ -30,6 +30,36 @@ class KitCommand extends BaseCommand
                 'composer' => 'jengo/api',
                 'class' => 'Jengo\\Api\\Config\\Services',
             ],
+            'auth' => [
+                'name' => 'jengo/auth',
+                'description' => 'Comprehensive authentication, multi-guard session/tokens, 2FA, and RBAC authorization.',
+                'composer' => 'jengo/auth',
+                'class' => 'Jengo\\Auth\\Config\\Services',
+            ],
+            'broadcasting' => [
+                'name' => 'jengo/broadcasting',
+                'description' => 'Event-driven real-time broadcasting supporting SSE, WebSockets, and log drivers.',
+                'composer' => 'jengo/broadcasting',
+                'class' => 'Jengo\\Broadcasting\\Config\\Services',
+            ],
+            'storage' => [
+                'name' => 'jengo/storage',
+                'description' => 'Unified multi-disk file management, chunked uploads, and media manipulation.',
+                'composer' => 'jengo/storage',
+                'class' => 'Jengo\\Storage\\Config\\Services',
+            ],
+            'ai' => [
+                'name' => 'jengo/ai',
+                'description' => 'Multi-provider LLM client supporting Gemini, OpenAI, Claude, Groq, Ollama, and tool calling.',
+                'composer' => 'jengo/ai',
+                'class' => 'Jengo\\Ai\\Config\\Services',
+            ],
+            'pdf' => [
+                'name' => 'jengo/pdf',
+                'description' => 'High-fidelity PDF generation supporting Dompdf and Browsershot engines.',
+                'composer' => 'jengo/pdf',
+                'class' => 'Jengo\\Pdf\\Config\\Services',
+            ],
             'inertia' => [
                 'name' => 'jengo/inertia',
                 'description' => 'Zero-config Inertia.js bridge supporting React, Vue, & Svelte templates.',
