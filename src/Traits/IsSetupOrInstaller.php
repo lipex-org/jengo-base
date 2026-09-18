@@ -17,6 +17,11 @@ trait IsSetupOrInstaller
      */
     protected function node(): PackageManager
     {
+        $pm = CLI::getOption('pm');
+        if ($pm && is_string($pm) && in_array($pm, ['npm', 'pnpm', 'yarn', 'bun'], true)) {
+            return PackageManager::init($pm);
+        }
+
         return PackageManager::init(PackageManager::detect(ROOTPATH, 'node'));
     }
 
@@ -186,6 +191,12 @@ trait IsSetupOrInstaller
             $updated = true;
             CLI::write("  " . CLI::color('✔', 'green') . " Helper '{$helper}' added to Autoload config.");
         }
+
+        // Clean up any double commas or malformed array items in $helpers if present
+        $content = preg_replace_callback('/(public\s+\$helpers\s*=\s*\[)(.*?)(\];)/s', function ($matches) {
+            $cleaned = preg_replace('/,(\s*,)+/', ',', $matches[2]);
+            return $matches[1] . $cleaned . $matches[3];
+        }, $content);
 
         // Only write back to the file if changes were actually made
         if ($updated) {

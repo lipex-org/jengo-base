@@ -43,6 +43,10 @@ class PackageManager
             return 'yarn';
         }
 
+        if (file_exists($root . '/bun.lock') || file_exists($root . '/bun.lockb')) {
+            return 'bun';
+        }
+
         return 'npm';
     }
 
@@ -55,7 +59,7 @@ class PackageManager
             return 'composer';
         }
 
-        $options = ['npm', 'pnpm', 'yarn'];
+        $options = ['npm', 'pnpm', 'yarn', 'bun'];
         $pm = CLI::getOption('pm');
 
         if ($pm && in_array($pm, $options, true)) {
@@ -78,6 +82,7 @@ class PackageManager
             'composer' => 'composer install',
             'pnpm' => 'pnpm install',
             'yarn' => 'yarn install',
+            'bun' => 'bun install',
             default => 'npm install',
         };
     }
@@ -99,6 +104,7 @@ class PackageManager
             'composer' => 'composer require ' . ($isDev ? '--dev ' : '') . $packagesString,
             'pnpm' => 'pnpm add ' . ($isDev ? '-D ' : '') . $packagesString,
             'yarn' => 'yarn add ' . ($isDev ? '--dev ' : '') . $packagesString,
+            'bun' => 'bun add ' . ($isDev ? '-d ' : '') . $packagesString,
             default => 'npm install ' . ($isDev ? '--save-dev ' : '') . $packagesString,
         };
     }
@@ -120,6 +126,7 @@ class PackageManager
             'composer' => 'composer remove ' . $packagesString,
             'pnpm' => 'pnpm remove ' . $packagesString,
             'yarn' => 'yarn remove ' . $packagesString,
+            'bun' => 'bun remove ' . $packagesString,
             default => 'npm uninstall ' . $packagesString,
         };
     }
