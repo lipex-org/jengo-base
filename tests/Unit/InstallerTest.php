@@ -116,4 +116,30 @@ final class InstallerTest extends CommandTestCase
 
         unlink($path);
     }
+
+    public function testPackageManagerEnsureGitignoreCreatesAndAppendsNodeModules(): void
+    {
+        $tempDir = sys_get_temp_dir() . '/jengo_test_gitignore_' . uniqid();
+        mkdir($tempDir, 0777, true);
+        $gitignore = $tempDir . '/.gitignore';
+
+        // 1. Creates when missing
+        \Jengo\Base\Libraries\PackageManager::ensureGitignore($tempDir);
+        $this->assertFileExists($gitignore);
+        $this->assertSame("node_modules/\n", file_get_contents($gitignore));
+
+        // 2. Does not duplicate when already present
+        \Jengo\Base\Libraries\PackageManager::ensureGitignore($tempDir);
+        $this->assertSame("node_modules/\n", file_get_contents($gitignore));
+
+        // 3. Appends when missing from existing content
+        file_put_contents($gitignore, "/vendor/\n.env\n");
+        \Jengo\Base\Libraries\PackageManager::ensureGitignore($tempDir);
+        $content = file_get_contents($gitignore);
+        $this->assertStringContainsString("/vendor/\n", $content);
+        $this->assertStringContainsString("node_modules/\n", $content);
+
+        @unlink($gitignore);
+        @rmdir($tempDir);
+    }
 }

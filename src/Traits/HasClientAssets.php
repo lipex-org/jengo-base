@@ -22,6 +22,18 @@ trait HasClientAssets
                 mkdir($fullPath, 0777, true);
             }
         }
+
+        $this->ensureNodeModulesIgnored();
+    }
+
+    /**
+     * Ensure node_modules/ is added to .gitignore.
+     */
+    protected function ensureNodeModulesIgnored(?string $path = null): void
+    {
+        if (class_exists(\Jengo\Base\Libraries\PackageManager::class)) {
+            \Jengo\Base\Libraries\PackageManager::ensureGitignore($path);
+        }
     }
 
     /**

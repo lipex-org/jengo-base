@@ -42,6 +42,14 @@ trait IsSetupOrInstaller
         return PackageManager::init($manager);
     }
 
+    /**
+     * Ensure entries are present in root .gitignore.
+     */
+    protected function ensureGitignore(string|array $entries = ['node_modules/']): void
+    {
+        PackageManager::ensureGitignore(ROOTPATH);
+    }
+
     protected function isPathAbsolute(string $path): bool
     {
         return str_starts_with($path, DIRECTORY_SEPARATOR) || (DIRECTORY_SEPARATOR === '\\' && preg_match('/^[a-z]:\\\/i', $path));

@@ -19,6 +19,10 @@ class PackageManager
     {
         $this->manager = $manager;
         $this->type = ($manager === 'composer') ? 'php' : 'node';
+
+        if ($this->type === 'node') {
+            self::ensureGitignore();
+        }
     }
 
     public static function init(string $manager = 'npm'): self
@@ -136,6 +140,10 @@ class PackageManager
      */
     public function run(string $command, string $cwd): void
     {
+        if ($this->type === 'node') {
+            self::ensureGitignore($cwd);
+        }
+
         $originalCwd = getcwd();
         chdir($cwd);
 
@@ -145,6 +153,30 @@ class PackageManager
         passthru($command);
 
         chdir($originalCwd);
+    }
+
+    /**
+     * Ensure that node_modules/ is included in .gitignore.
+     */
+    public static function ensureGitignore(?string $root = null): void
+    {
+        $dir = $root ?: (defined('ROOTPATH') ? ROOTPATH : getcwd());
+        $gitignorePath = rtrim($dir, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . '.gitignore';
+
+        if (!file_exists($gitignorePath)) {
+            @file_put_contents($gitignorePath, "node_modules/\n");
+            return;
+        }
+
+        $content = @file_get_contents($gitignorePath);
+        if ($content === false) {
+            return;
+        }
+
+        if (!preg_match('/(^|\n)\s*\/?node_modules\/?\s*($|\n)/m', $content)) {
+            $separator = (str_ends_with($content, "\n") || $content === '') ? '' : "\n";
+            @file_put_contents($gitignorePath, $content . $separator . "node_modules/\n");
+        }
     }
 
     public function getManager(): string
