@@ -28,16 +28,4 @@ class Registrar
             ]
         ];
     }
-
-    public static function Modules(): array
-    {
-        return [
-            'composerPackages' => [
-                'exclude' => [
-                    'pestphp/pest',
-                    'pestphp/pest-plugin',
-                ]
-            ]
-        ];
-    }
 }

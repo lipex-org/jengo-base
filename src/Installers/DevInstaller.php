@@ -76,6 +76,13 @@ class DevInstaller extends AbstractInstaller
             }
         }
 
+        $pestTest = CLI::getOption('pest');
+
+        if ($pestTest) {
+            // ensure the test script calls pest binary and not phpunit
+            $composer['scripts']['test'] = 'pest';
+        }
+
         // Set a very high process timeout (0 = infinite)
         $composer['config']['process-timeout'] = 0;
 
