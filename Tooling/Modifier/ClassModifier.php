@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Tooling\Modifier;
+namespace Jengo\Base\Tooling\Modifier;
 
 use PhpParser\Node;
 use PhpParser\Node\Stmt\Class_;

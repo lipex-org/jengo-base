@@ -5,10 +5,8 @@ declare(strict_types=1);
 namespace Jengo\Base\Installers;
 
 use CodeIgniter\CLI\CLI;
-use InvalidArgumentException;
 use Jengo\Base\Installers\Contracts\AbstractInstaller;
-use RuntimeException;
-use Tooling\Modifier\ClassModifier;
+use Jengo\Base\Tooling\Modifier\ClassModifier;
 
 class PestInstaller extends AbstractInstaller
 {
