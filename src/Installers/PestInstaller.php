@@ -36,7 +36,7 @@ class PestInstaller extends AbstractInstaller
         $hasPest = isset($composer['require-dev']['pestphp/pest']);
         $hasPestInit = file_exists(ROOTPATH . 'tests/Pest.php');
 
-        return !$hasPest || !$hasPestInit;
+        return !$hasPest && !$hasPestInit;
     }
 
     public function install(): void
@@ -56,23 +56,49 @@ class PestInstaller extends AbstractInstaller
             $composer['config']['allow-plugins'] = [];
         }
 
+        if (!isset($composer['autoload-dev'])) {
+            $composer['autoload-dev'] = [];
+        }
+
+        if (!isset($composer['autoload-dev']['psr-4'])) {
+            $composer['autoload-dev']['psr-4'] = [];
+        }
+
         // Trust pest plugins
         $composer['config']['allow-plugins']['pestphp/pest-plugin'] = true;
 
+        // add tests to be autoloaded and psr4 compliant
+        if (!isset($composer['autoload-dev']['psr-4']['Tests\\'])) {
+            $composer['autoload-dev']['psr-4']['Tests\\'] = 'tests/';
+        }
+
+        // remove phpunit if it exists
+        if (isset($composer['require-dev']['phpunit/phpunit'])) {
+            unset($composer['require-dev']['phpunit/phpunit']);
+        }
+
         $this->writeFile($composerPath, json_encode($composer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+        // run composer update to apply changes
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Running composer update to apply changes...', 'dark_gray');
+        $this->run('composer update --no-interaction');
 
         // Require pestphp/pest package
         CLI::write('  ' . CLI::color('●', 'cyan') . ' Requiring pestphp/pest via Composer...', 'dark_gray');
-        $this->run('composer require pestphp/pest --dev --no-interaction');
+        $this->run('composer require pestphp/pest --dev --with-all-dependencies --no-interaction');
 
-        // Check if we need to run pest --init
-        if (!file_exists(ROOTPATH . 'tests/Pest.php')) {
-            CLI::write('  ' . CLI::color('●', 'cyan') . ' Initializing Pest PHP...', 'dark_gray');
-            $pestBin = ROOTPATH . 'vendor/bin/pest';
-            if (file_exists($pestBin)) {
-                $this->run($pestBin . ' --init --no-interaction');
-            }
+        // publish Pest test stubs from Publisher/Stubs/Pest to completley overwrite the tests folder in the current project
+        CLI::write('  ' . CLI::color('●', 'cyan') . ' Publishing Pest test stubs to tests folder...', 'dark_gray');
+        $source = __DIR__ . '/../Publisher/Stubs/Pest';
+        $destination = ROOTPATH . 'tests';
+
+        helper('filesystem');
+
+        if (is_dir($destination)) {
+            delete_files($destination, true);
         }
+
+        $this->publish($source);
 
         CLI::write('Pest PHP configured successfully.', 'green');
     }
