@@ -278,7 +278,9 @@ if (!function_exists('inertia')) {
             return \Jengo\Inertia\Inertia::render($component, $props);
         }
 
-        return \Jengo\Base\Inertia\Inertia::render($component, $props);
+        throw new \RuntimeException(
+            'The jengo/inertia package is required to use the inertia() helper. Run: composer require jengo/inertia'
+        );
     }
 }
 
