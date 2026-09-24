@@ -677,16 +677,16 @@ if (!function_exists('resolve')) {
     }
 }
 
-if (!function_exists('action')) {
+if (!function_exists('inject')) {
     /**
      * Wrap a closure, invokable, or controller method into a DI-aware route handler.
      *
      * Usage in Config/Routes.php:
-     *   $routes->get('users/(:num)', action(function(int $id, UserRepositoryInterface $users) {
+     *   $routes->get('users/(:num)', inject(function(int $id, UserRepositoryInterface $users) {
      *       return json($users->find($id));
      *   }));
      */
-    function action(callable|array|string $target): \Closure
+    function inject(callable|array|string $target): \Closure
     {
         return function (...$params) use ($target) {
             return \Jengo\Base\Container\Container::getInstance()->call($target, $params);

@@ -148,11 +148,11 @@ final class ContainerTest extends CIUnitTestCase
         $this->assertSame(['id' => 99, 'name' => 'User 99'], $result);
     }
 
-    public function testActionHelperWithClosure(): void
+    public function testInjectHelperWithClosure(): void
     {
         $this->container->bind(DummyRepositoryInterface::class, DummyDatabaseRepository::class);
 
-        $routeHandler = action(function (int $id, DummyUserService $service) {
+        $routeHandler = inject(function (int $id, DummyUserService $service) {
             return "Rendered {$service->findUser($id)}";
         });
 
@@ -160,12 +160,12 @@ final class ContainerTest extends CIUnitTestCase
         $this->assertSame('Rendered User 88', $routeHandler(88));
     }
 
-    public function testActionHelperWithControllerArrayConstructorAndMethodInjection(): void
+    public function testInjectHelperWithControllerArrayConstructorAndMethodInjection(): void
     {
         $this->container->bind(DummyRepositoryInterface::class, DummyDatabaseRepository::class);
 
         // DummyConstructedController requires DummyBillingService in constructor AND DummyUserService in show()
-        $routeHandler = action([DummyConstructedController::class, 'show']);
+        $routeHandler = inject([DummyConstructedController::class, 'show']);
 
         $result = $routeHandler(101);
 
