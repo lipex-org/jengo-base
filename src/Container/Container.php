@@ -65,6 +65,14 @@ class Container implements ContainerInterface
     }
 
     /**
+     * Reset the shared container instance.
+     */
+    public static function reset(): void
+    {
+        static::$instance = null;
+    }
+
+    /**
      * Register a binding with the container.
      */
     public function bind(string $abstract, Closure|string|null $concrete = null, bool $shared = false): self

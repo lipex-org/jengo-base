@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Base\Vite\Repositories;
 
 use Jengo\Base\Config\Vite as ViteConfig;
+use Jengo\Base\Support\JengoDirectory;
 use Jengo\Base\Vite\ViteEntryPointScanner;
 
 class ViteRepository
@@ -17,7 +18,7 @@ class ViteRepository
         $this->config = config('Vite');
     }
 
-    protected string $cachePath = ROOTPATH . '.jengo/vite_entrypoints.json';
+    protected string $cacheFile = 'vite_entrypoints.json';
 
     public function getFullConfig(bool $reset = false): ViteConfig
     {
@@ -33,8 +34,8 @@ class ViteRepository
 
     protected function loadEntrypoints(bool $reset = false): array
     {
-        if (isProduction() && file_exists($this->cachePath) && !$reset) {
-            return json_decode(file_get_contents($this->cachePath), true) ?? [];
+        if (isProduction() && JengoDirectory::has($this->cacheFile) && !$reset) {
+            return JengoDirectory::readJson($this->cacheFile, []) ?? [];
         }
 
         // In dev or if cache is missing, scan fresh
@@ -43,16 +44,7 @@ class ViteRepository
 
     public function cacheEntrypoints(array $data): void
     {
-        if (!is_dir(dirname($this->cachePath))) {
-            mkdir(dirname($this->cachePath), 0755, true);
-        }
-
-        // delete cache file if exists
-        if (file_exists($this->cachePath)) {
-            unlink($this->cachePath);
-        }
-
-        file_put_contents($this->cachePath, json_encode($data, JSON_PRETTY_PRINT));
+        JengoDirectory::writeJson($this->cacheFile, $data);
     }
 
     public function scan(bool $reset = false): ViteConfig

@@ -54,12 +54,12 @@ class ModuleDiscovery
         }
 
         $env = env('CI_ENVIRONMENT', 'production');
-        $cachePath = ROOTPATH . '.jengo/cache/modules.php';
+        $cacheFile = 'cache/modules.php';
 
         // 1. Production Mode: check cache first
         if ($env === 'production') {
-            if (file_exists($cachePath)) {
-                self::$cachedModules = require $cachePath;
+            if (\Jengo\Base\Support\JengoDirectory::has($cacheFile)) {
+                self::$cachedModules = \Jengo\Base\Support\JengoDirectory::readPhpArray($cacheFile);
                 return self::$cachedModules;
             }
 
@@ -136,29 +136,7 @@ class ModuleDiscovery
      */
     public static function compileCache(array $modules): void
     {
-        $cacheDir = ROOTPATH . '.jengo/cache';
-        if (!is_dir($cacheDir)) {
-            mkdir($cacheDir, 0777, true);
-        }
-
-        // Add gitignore inside .jengo to prevent cache tracking
-        $gitignorePath = ROOTPATH . '.jengo/.gitignore';
-        if (!file_exists($gitignorePath)) {
-            file_put_contents($gitignorePath, "cache/\n");
-        }
-
-        $cacheFile = $cacheDir . '/modules.php';
-        $exported = var_export($modules, true);
-        $content = <<<PHP
-<?php
-// Generated automatically by Jengo - Do not edit manually
-return {$exported};
-PHP;
-
-        // Atomic file write using a temp file in the same directory
-        $tempFile = $cacheDir . '/modules.php.tmp.' . bin2hex(random_bytes(8));
-        file_put_contents($tempFile, $content);
-        rename($tempFile, $cacheFile);
+        \Jengo\Base\Support\JengoDirectory::writePhpArray('cache/modules.php', $modules);
     }
 
     /**
@@ -166,9 +144,6 @@ PHP;
      */
     public static function clearCache(): void
     {
-        $cacheFile = ROOTPATH . '.jengo/cache/modules.php';
-        if (file_exists($cacheFile)) {
-            unlink($cacheFile);
-        }
+        \Jengo\Base\Support\JengoDirectory::delete('cache/modules.php');
     }
 }

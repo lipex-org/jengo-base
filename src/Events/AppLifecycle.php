@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Base\Events;
 
 use CodeIgniter\Events\Events;
+use Jengo\Base\Container\BindingScanner;
 use Jengo\Base\Libraries\ModuleDiscovery;
 
 class AppLifecycle
@@ -23,10 +24,13 @@ class AppLifecycle
 
         self::$initialized = true;
 
-        // 1. Trigger the unified 'init' event for container bindings & setup
+        // 1. Load compiled #[Bind] attribute bindings into the DI container
+        BindingScanner::loadIntoContainer();
+
+        // 2. Trigger the unified 'init' event for manual bindings & setups
         Events::trigger('init');
 
-        // 2. Discover and register ecosystem modules
+        // 3. Discover and register ecosystem modules
         ModuleDiscovery::discoverAndRegister();
     }
 
