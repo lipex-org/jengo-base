@@ -1,6 +1,12 @@
 <?php
 
 use Tests\Support\Models\ExampleModel;
+use Jengo\Base\Testing\PestDatabaseBuilder;
+use Tests\Support\Database\Seeds\ExampleSeeder;
+
+PestDatabaseBuilder::make()
+    ->seed(ExampleSeeder::class)
+    ->use();
 
 describe('Database', function () {
     test('model findAll returns seeded rows', function () {
