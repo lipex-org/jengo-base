@@ -6,6 +6,7 @@ namespace Jengo\Base\Testing;
 
 use CodeIgniter\Test\CIUnitTestCase;
 use CodeIgniter\Test\DatabaseTestTrait;
+use Jengo\Base\Support\JengoDirectory;
 
 /**
  * Fluent builder for configuring database-dependent Pest tests on the fly.
@@ -23,16 +24,9 @@ use CodeIgniter\Test\DatabaseTestTrait;
 class PestDatabaseBuilder
 {
     /**
-     * Static slot registry mapping an integer slot index to its configuration.
-     *
-     * @var array<int, array<string, mixed>>
+     * Cache file in .jengo/ for tracking generated test cases.
      */
-    private static array $slots = [];
-
-    /**
-     * Monotonically increasing slot index counter.
-     */
-    private static int $slotCounter = 0;
+    public const CACHE_FILE = 'cache/pest_test_cases.json';
 
     /**
      * The seeder class to run before each test.
@@ -57,7 +51,7 @@ class PestDatabaseBuilder
     /**
      * The namespace for database classes.
      */
-    protected string $namespace = '';
+    protected string $namespace = 'Tests\\Support';
 
     // -----------------------------------------------------------------------
     // Factory
@@ -126,71 +120,115 @@ class PestDatabaseBuilder
     }
 
     // -----------------------------------------------------------------------
-    // Slot registry accessor
+    // Class Generation & Pest Registration
     // -----------------------------------------------------------------------
 
     /**
-     * Retrieve the configuration array for a given slot index.
+     * Generates a physical test case class in tests/_support/TestCases/Generated/
+     * and registers it with Pest for the given directory.
+     */
+    public function in(string ...$directories): void
+    {
+        $className = $this->ensureTestCaseClass($directories);
+
+        if (function_exists('pest')) {
+            pest()->extend($className)->in(...$directories);
+        }
+    }
+
+    /**
+     * Ensure the physical test case class exists on disk and is included.
      *
-     * @return array<string, mixed>
+     * @param string[] $directories
+     * @return class-string<CIUnitTestCase>
      */
-    public static function getSlot(int $slot): array
+    public function ensureTestCaseClass(array $directories = []): string
     {
-        return self::$slots[$slot] ?? [];
-    }
+        $config = $this->buildConfig();
+        $hash = substr(md5(serialize($config) . implode(',', $directories)), 0, 10);
+        $shortName = 'DatabaseTestCase_' . $hash;
+        $namespace = 'Tests\\Support\\TestCases\\Generated';
+        $fqcn = $namespace . '\\' . $shortName;
 
-    // -----------------------------------------------------------------------
-    // Terminal method
-    // -----------------------------------------------------------------------
+        if (class_exists($fqcn, false)) {
+            return $fqcn;
+        }
 
-    /**
-     * Stores the current configuration in the slot registry and registers a
-     * Pest extend() so that every test file inside $directory inherits a
-     * CodeIgniter database test-case base class pre-configured with this
-     * builder's settings.
-     */
-    public function in(string $directory): void
-    {
-        $slot = self::$slotCounter;
-        self::$slots[$slot] = $this->buildConfig();
+        $supportDir = defined('SUPPORTPATH') ? SUPPORTPATH : (defined('TESTPATH') ? TESTPATH . '_support' . DIRECTORY_SEPARATOR : (getcwd() . '/tests/_support/'));
+        $targetDir = rtrim($supportDir, '/\\') . DIRECTORY_SEPARATOR . 'TestCases' . DIRECTORY_SEPARATOR . 'Generated';
+        $targetFile = $targetDir . DIRECTORY_SEPARATOR . $shortName . '.php';
 
-        $anon = new class('test') extends CIUnitTestCase {
-            use DatabaseTestTrait;
+        $cache = JengoDirectory::readJson(self::CACHE_FILE, []);
+        $cachedHash = $cache[$shortName]['hash'] ?? null;
+        $currentHash = md5(serialize($config));
 
-            public static int $slotId = 0;
-
-            protected function setUp(): void
-            {
-                $config = PestDatabaseBuilder::getSlot(static::$slotId);
-
-                $this->seed    = $config['seed'] ?? '';
-                $this->migrate = $config['migrate'] ?? true;
-                $this->DBGroup = $config['dbGroup'] ?? 'tests';
-
-                if (!empty($config['basePath'])) {
-                    $this->basePath = $config['basePath'];
-                }
-
-                if (!empty($config['namespace'])) {
-                    $this->namespace = $config['namespace'];
-                }
-
-                parent::setUp();
+        if (! file_exists($targetFile) || $cachedHash !== $currentHash) {
+            if (! is_dir($targetDir)) {
+                mkdir($targetDir, 0755, true);
             }
-        };
 
-        $anon::$slotId = $slot;
-        self::$slotCounter++;
+            $classCode = $this->generateClassCode($namespace, $shortName, $config);
+            file_put_contents($targetFile, $classCode, LOCK_EX);
 
-        pest()->extend(get_class($anon))->in($directory);
+            $cache[$shortName] = [
+                'file'        => $targetFile,
+                'hash'        => $currentHash,
+                'directories' => $directories,
+                'created_at'  => date('c'),
+            ];
+            JengoDirectory::writeJson(self::CACHE_FILE, $cache);
+        }
+
+        if (file_exists($targetFile)) {
+            require_once $targetFile;
+        }
+
+        return $fqcn;
     }
 
-    // -----------------------------------------------------------------------
-    // Internal helper
-    // -----------------------------------------------------------------------
+    /**
+     * Generate PHP code for the physical test case class.
+     *
+     * @param array<string, mixed> $config
+     */
+    protected function generateClassCode(string $namespace, string $shortName, array $config): string
+    {
+        $seedVal = var_export($config['seed'], true);
+        $migrateVal = var_export($config['migrate'], true);
+        $dbGroupVal = var_export($config['dbGroup'], true);
+        $basePathVal = var_export($config['basePath'], true);
+        $namespaceVal = var_export($config['namespace'], true);
+
+        return <<<PHP
+<?php
+
+declare(strict_types=1);
+
+namespace {$namespace};
+
+use CodeIgniter\Test\CIUnitTestCase;
+use CodeIgniter\Test\DatabaseTestTrait;
+
+/**
+ * Auto-generated by Jengo PestDatabaseBuilder.
+ * Do not edit directly.
+ */
+class {$shortName} extends CIUnitTestCase
+{
+    use DatabaseTestTrait;
+
+    protected \$seed = {$seedVal};
+    protected \$migrate = {$migrateVal};
+    protected \$DBGroup = {$dbGroupVal};
+    protected \$basePath = {$basePathVal};
+    protected \$namespace = {$namespaceVal};
+}
+
+PHP;
+    }
 
     /**
-     * Build the raw configuration array to store in the slot registry.
+     * Build the raw configuration array.
      *
      * @return array<string, mixed>
      */
