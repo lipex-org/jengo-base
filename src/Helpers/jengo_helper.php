@@ -676,3 +676,20 @@ if (!function_exists('resolve')) {
         return \Jengo\Base\Container\Container::getInstance()->make($abstract, $parameters);
     }
 }
+
+if (!function_exists('action')) {
+    /**
+     * Wrap a closure, invokable, or controller method into a DI-aware route handler.
+     *
+     * Usage in Config/Routes.php:
+     *   $routes->get('users/(:num)', action(function(int $id, UserRepositoryInterface $users) {
+     *       return json($users->find($id));
+     *   }));
+     */
+    function action(callable|array|string $target): \Closure
+    {
+        return function (...$params) use ($target) {
+            return \Jengo\Base\Container\Container::getInstance()->call($target, $params);
+        };
+    }
+}

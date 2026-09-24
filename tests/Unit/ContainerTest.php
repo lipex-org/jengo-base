@@ -148,6 +148,34 @@ final class ContainerTest extends CIUnitTestCase
         $this->assertSame(['id' => 99, 'name' => 'User 99'], $result);
     }
 
+    public function testActionHelperWithClosure(): void
+    {
+        $this->container->bind(DummyRepositoryInterface::class, DummyDatabaseRepository::class);
+
+        $routeHandler = action(function (int $id, DummyUserService $service) {
+            return "Rendered {$service->findUser($id)}";
+        });
+
+        $this->assertInstanceOf(\Closure::class, $routeHandler);
+        $this->assertSame('Rendered User 88', $routeHandler(88));
+    }
+
+    public function testActionHelperWithControllerArrayConstructorAndMethodInjection(): void
+    {
+        $this->container->bind(DummyRepositoryInterface::class, DummyDatabaseRepository::class);
+
+        // DummyConstructedController requires DummyBillingService in constructor AND DummyUserService in show()
+        $routeHandler = action([DummyConstructedController::class, 'show']);
+
+        $result = $routeHandler(101);
+
+        $this->assertSame([
+            'id'      => 101,
+            'user'    => 'User 101',
+            'gateway' => 'default_gateway',
+        ], $result);
+    }
+
     public function testControllerRemapWithHasContainerTrait(): void
     {
         $this->container->bind(DummyRepositoryInterface::class, DummyDatabaseRepository::class);
@@ -235,6 +263,18 @@ class DummyController {
             'status'   => $status,
             'user'     => $users->findUser($id),
             'has_data' => $data instanceof ValidatedData,
+        ];
+    }
+}
+
+class DummyConstructedController {
+    public function __construct(public DummyBillingService $billing) {}
+
+    public function show(int $id, DummyUserService $users): array {
+        return [
+            'id'      => $id,
+            'user'    => $users->findUser($id),
+            'gateway' => $this->billing->driver,
         ];
     }
 }
