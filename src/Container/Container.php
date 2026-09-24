@@ -427,6 +427,11 @@ class Container implements ContainerInterface
      */
     protected function resolveValidatedData(): ValidatedData
     {
+        $lastHandler = \Jengo\Base\Validation\FormHandler::getLastInstance();
+        if ($lastHandler !== null) {
+            return $lastHandler->validated();
+        }
+
         if (function_exists('request')) {
             $request = request();
             return new ValidatedData(
