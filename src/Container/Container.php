@@ -14,7 +14,6 @@ use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
 use ReflectionNamedType;
-use ReflectionParameter;
 use Throwable;
 
 class Container implements ContainerInterface
