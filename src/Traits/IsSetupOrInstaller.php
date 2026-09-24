@@ -8,6 +8,7 @@ use CodeIgniter\Publisher\Publisher;
 use CodeIgniter\Test\Mock\MockInputOutput;
 use Jengo\Base\Installers\Libraries\EnvHandler;
 use Jengo\Base\Libraries\PackageManager;
+use Jengo\Base\Tooling\Modifier\ClassModifier;
 use RuntimeException;
 
 trait IsSetupOrInstaller
@@ -163,52 +164,41 @@ trait IsSetupOrInstaller
         copy($src, $dest);
     }
 
+    /**
+     * Add one or more helpers to the $helpers property in app/Config/Autoload.php.
+     *
+     * Uses ClassModifier for AST-based modification so whitespace variations,
+     * backslash-namespaced helpers, and formatting do not cause issues.
+     */
     protected function addHelperToAutoload(array $helpers): void
     {
         $path = APPPATH . 'Config/Autoload.php';
 
         if (!file_exists($path)) {
-            CLI::error("Config/Autoload.php not found.");
+            CLI::error('Config/Autoload.php not found.');
             return;
         }
 
-        $content = file_get_contents($path);
-        $updated = false;
-
-        foreach ($helpers as $helper) {
-            // Escape backslashes for standard string comparison
-            $normalizedHelper = str_replace('\\', '\\\\', $helper);
-
-            // Check if this specific helper is already configured
-            if (str_contains($content, $helper) || str_contains($content, $normalizedHelper)) {
-                CLI::write("  " . CLI::color('✔', 'green') . " Helper '{$helper}' is already configured.");
-                continue;
+        rescue(function () use ($path, $helpers) {
+            ClassModifier::fromFile($path)
+                ->mutateArrayProperty('helpers', function (array $existing) use ($helpers) {
+                    foreach ($helpers as $helper) {
+                        if (!in_array($helper, $existing, true)) {
+                            $existing[] = $helper;
+                            CLI::write("  [OK] Helper '{$helper}' added to Autoload config.", 'green');
+                        } else {
+                            CLI::write("  Helper '{$helper}' is already configured.");
+                        }
+                    }
+                    return $existing;
+                })
+                ->saveTo($path);
+        }, function (\Throwable $e) use ($helpers) {
+            CLI::error('Could not update Config/Autoload.php automatically: ' . $e->getMessage());
+            CLI::write('Please add the following helpers manually to $helpers in app/Config/Autoload.php:');
+            foreach ($helpers as $helper) {
+                CLI::write("  '{$helper}',");
             }
-
-            // Properly escape backslashes for the regular expression replacement string
-            $regexReplacement = str_replace('\\', '\\\\\\\\', $helper);
-
-            // Inject the helper right after the opening bracket of the public $helpers array
-            $content = preg_replace(
-                '/(public\s+\$helpers\s*=\s*\[)/',
-                "$1\n        '{$regexReplacement}',",
-                $content,
-                1
-            );
-
-            $updated = true;
-            CLI::write("  " . CLI::color('✔', 'green') . " Helper '{$helper}' added to Autoload config.");
-        }
-
-        // Clean up any double commas or malformed array items in $helpers if present
-        $content = preg_replace_callback('/(public\s+\$helpers\s*=\s*\[)(.*?)(\];)/s', function ($matches) {
-            $cleaned = preg_replace('/,(\s*,)+/', ',', $matches[2]);
-            return $matches[1] . $cleaned . $matches[3];
-        }, $content);
-
-        // Only write back to the file if changes were actually made
-        if ($updated) {
-            file_put_contents($path, $content);
-        }
+        });
     }
 }

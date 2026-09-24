@@ -288,7 +288,7 @@ if (!function_exists('value')) {
     /**
      * Return the default value of the given value.
      */
-    function value(mixed $value, mixed ...$args): mixed
+    function value(mixed $value = null, mixed ...$args): mixed
     {
         return $value instanceof \Closure ? $value(...$args) : $value;
     }
