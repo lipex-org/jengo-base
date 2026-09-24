@@ -10,7 +10,7 @@ function vite_tags()
     helper('Jengo\Base\Helpers\jengo');
 
     $vite_server_url = env('VITE_DEV_SERVER', 'http://localhost:5173');
-    $entrypoints = (new ViteRepository())->getFullConfig()->entrypoints;
+    $entrypoints = (new ViteRepository())->getFullConfig()['entrypoints'] ?? [];
 
     $service = new ViteService();
 

@@ -4,22 +4,33 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Installers\Libraries;
 
+use Jengo\Base\Support\JengoDirectory;
+
 class InstallerTracker
 {
-    protected string $path;
+    protected string $file;
+    protected bool $isCustomPath = false;
 
-    public function __construct(?string $path = null)
+    public function __construct(?string $file = null)
     {
-        $this->path = $path ?? ROOTPATH . '.jengo/installers.php';
+        if ($file !== null && (str_starts_with($file, '/') || str_starts_with($file, '\\') || str_contains($file, DIRECTORY_SEPARATOR))) {
+            $this->file = $file;
+            $this->isCustomPath = true;
+        } else {
+            $this->file = $file ?? 'installers.php';
+        }
     }
 
     public function all(): array
     {
-        if (! file_exists($this->path)) {
-            return [];
+        if ($this->isCustomPath) {
+            if (! file_exists($this->file)) {
+                return [];
+            }
+            return require $this->file;
         }
 
-        return require $this->path;
+        return JengoDirectory::readPhpArray($this->file, []);
     }
 
     public function isInstalled(string $name): bool
@@ -36,26 +47,16 @@ class InstallerTracker
             'installed_at' => gmdate('c'),
         ];
 
-        $this->persist($data);
-    }
-
-    protected function persist(array $data): void
-    {
-        $dir = dirname($this->path);
-
-        if (! is_dir($dir)) {
-            mkdir($dir, 0775, true);
+        if ($this->isCustomPath) {
+            $dir = dirname($this->file);
+            if (! is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
+            $export = var_export($data, true);
+            file_put_contents($this->file, "<?php\n\nreturn {$export};\n");
+            return;
         }
 
-        $export = var_export($data, true);
-
-        $contents = <<<PHP
-<?php
-
-return {$export};
-
-PHP;
-
-        file_put_contents($this->path, $contents);
+        JengoDirectory::writePhpArray($this->file, $data);
     }
 }

@@ -1,10 +1,14 @@
 <?php
 
+declare(strict_types=1);
+
 namespace Jengo\Base\Testing;
 
+use CodeIgniter\Test\CIUnitTestCase;
+use CodeIgniter\Test\DatabaseTestTrait;
+
 /**
- * Fluent builder that registers a Pest extend() for database tests without
- * requiring per-file beforeEach() boilerplate.
+ * Fluent builder for configuring database-dependent Pest tests on the fly.
  *
  * Usage in tests/Pest.php:
  *
@@ -13,48 +17,77 @@ namespace Jengo\Base\Testing;
  *       ->migrate(true)
  *       ->group('tests')
  *       ->in('feature/database');
+ *
+ * This eliminates the need for beforeEach() boilerplate inside individual test files.
  */
 class PestDatabaseBuilder
 {
-    // -----------------------------------------------------------------------
-    // Static slot registry
-    // -----------------------------------------------------------------------
-
-    /** @var array<int, array<string, mixed>> */
+    /**
+     * Static slot registry mapping an integer slot index to its configuration.
+     *
+     * @var array<int, array<string, mixed>>
+     */
     private static array $slots = [];
 
+    /**
+     * Monotonically increasing slot index counter.
+     */
     private static int $slotCounter = 0;
 
-    // -----------------------------------------------------------------------
-    // Instance configuration
-    // -----------------------------------------------------------------------
+    /**
+     * The seeder class to run before each test.
+     */
+    protected string $seed = '';
 
-    private string $seedClass  = '';
-    private bool   $migrate    = true;
-    private string $dbGroup    = 'tests';
-    private string $basePath   = '';
-    private string $nameSpace  = '';
+    /**
+     * Whether to run migrations before each test.
+     */
+    protected bool $migrate = true;
+
+    /**
+     * The database group name to use for tests.
+     */
+    protected string $dbGroup = 'tests';
+
+    /**
+     * The base path for database files (migrations/seeds).
+     */
+    protected string $basePath = '';
+
+    /**
+     * The namespace for database classes.
+     */
+    protected string $namespace = '';
 
     // -----------------------------------------------------------------------
     // Factory
     // -----------------------------------------------------------------------
 
+    /**
+     * Create a new builder instance.
+     */
     public static function make(): self
     {
         return new self();
     }
 
     // -----------------------------------------------------------------------
-    // Fluent configuration methods
+    // Fluent configuration
     // -----------------------------------------------------------------------
 
+    /**
+     * Set the seeder class to execute before each test.
+     */
     public function seed(string $seederClass): self
     {
-        $this->seedClass = $seederClass;
+        $this->seed = $seederClass;
 
         return $this;
     }
 
+    /**
+     * Enable or disable running migrations before tests.
+     */
     public function migrate(bool $migrate = true): self
     {
         $this->migrate = $migrate;
@@ -62,6 +95,9 @@ class PestDatabaseBuilder
         return $this;
     }
 
+    /**
+     * Set the database connection group name.
+     */
     public function group(string $dbGroup): self
     {
         $this->dbGroup = $dbGroup;
@@ -69,13 +105,19 @@ class PestDatabaseBuilder
         return $this;
     }
 
+    /**
+     * Set the namespace for database files.
+     */
     public function namespace(string $namespace): self
     {
-        $this->nameSpace = $namespace;
+        $this->namespace = $namespace;
 
         return $this;
     }
 
+    /**
+     * Set the base path for database files.
+     */
     public function basePath(string $basePath): self
     {
         $this->basePath = $basePath;
@@ -84,11 +126,11 @@ class PestDatabaseBuilder
     }
 
     // -----------------------------------------------------------------------
-    // Slot access (called from within the anonymous class setUp)
+    // Slot registry accessor
     // -----------------------------------------------------------------------
 
     /**
-     * Returns the configuration stored for the given slot index.
+     * Retrieve the configuration array for a given slot index.
      *
      * @return array<string, mixed>
      */
@@ -112,21 +154,14 @@ class PestDatabaseBuilder
         $slot = self::$slotCounter;
         self::$slots[$slot] = $this->buildConfig();
 
-        $anon = new class($slot) extends \CodeIgniter\Test\CIUnitTestCase {
-            use \CodeIgniter\Test\DatabaseTestTrait;
+        $anon = new class('test') extends CIUnitTestCase {
+            use DatabaseTestTrait;
 
-            private static int $slot;
-
-            public function __construct(int $slot = -1)
-            {
-                if ($slot !== -1) {
-                    static::$slot = $slot;
-                }
-            }
+            public static int $slotId = 0;
 
             protected function setUp(): void
             {
-                $config = \Jengo\Base\Testing\PestDatabaseBuilder::getSlot(static::$slot);
+                $config = PestDatabaseBuilder::getSlot(static::$slotId);
 
                 $this->seed    = $config['seed'] ?? '';
                 $this->migrate = $config['migrate'] ?? true;
@@ -144,28 +179,29 @@ class PestDatabaseBuilder
             }
         };
 
-        pest()->extend(get_class($anon))->in($directory);
-
+        $anon::$slotId = $slot;
         self::$slotCounter++;
+
+        pest()->extend(get_class($anon))->in($directory);
     }
 
     // -----------------------------------------------------------------------
-    // Internal helpers
+    // Internal helper
     // -----------------------------------------------------------------------
 
     /**
-     * Builds the configuration array from the current instance properties.
+     * Build the raw configuration array to store in the slot registry.
      *
      * @return array<string, mixed>
      */
     private function buildConfig(): array
     {
         return [
-            'seed'      => $this->seedClass,
+            'seed'      => $this->seed,
             'migrate'   => $this->migrate,
             'dbGroup'   => $this->dbGroup,
             'basePath'  => $this->basePath,
-            'namespace' => $this->nameSpace,
+            'namespace' => $this->namespace,
         ];
     }
 }

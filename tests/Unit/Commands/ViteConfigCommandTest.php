@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace Tests\Unit\Commands;
 
 use CodeIgniter\Config\Factories;
-use Jengo\Base\Config\Vite as ViteConfig;
+use Jengo\Base\Config\Jengo as JengoConfig;
 use Tests\Support\CommandTestCase;
 
 final class ViteConfigCOmmandTest extends CommandTestCase
@@ -14,15 +14,21 @@ final class ViteConfigCOmmandTest extends CommandTestCase
     {
         parent::setUp();
 
-        $config = new ViteConfig();
+        $config = new JengoConfig();
 
-        $config->entrypoints = [
-            'app.css',
-            'user/book.ts',
-            'main.ts'
+        $config->vite = [
+            'entrypoints' => [
+                'app.css',
+                'user/book.ts',
+                'main.ts',
+            ],
+            'searchPaths' => [
+                APPPATH,
+                ROOTPATH . 'resources',
+            ],
         ];
 
-        Factories::injectMock('config', 'Vite', $config);
+        Factories::injectMock('config', 'Jengo', $config);
     }
 
     public function tearDown(): void

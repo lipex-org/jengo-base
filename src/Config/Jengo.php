@@ -46,5 +46,34 @@ class Jengo extends BaseConfig
         'sharedProps'        => null,
         'redirectConversion' => true,
     ];
+
+    /**
+     * Vite configuration options.
+     *
+     * @var array{
+     *     entrypoints?: string[],
+     *     searchPaths?: string[],
+     * }
+     */
+    public array $vite = [
+        'entrypoints' => [],
+        'searchPaths' => [
+            APPPATH,
+            ROOTPATH . 'resources',
+        ],
+    ];
+
+    /**
+     * Sqids configuration options.
+     *
+     * @var array{
+     *     alphabet?: string,
+     *     minLength?: int,
+     * }
+     */
+    public array $sqids = [
+        'alphabet'  => 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789',
+        'minLength' => 10,
+    ];
 }
 

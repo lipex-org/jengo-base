@@ -22,8 +22,8 @@ class DiscoverVariant extends AbstractVariant
 
     public function run(array $params): void
     {
-        $cacheFile = ROOTPATH . '.jengo/cache/modules.php';
-        $isCached = file_exists($cacheFile);
+        $cacheFile = 'cache/modules.php';
+        $isCached = \Jengo\Base\Support\JengoDirectory::has($cacheFile);
 
         CLI::write('Scanning modules directory...', 'cyan');
         $modules = ModuleDiscovery::scanModulesDirectory();
@@ -35,7 +35,7 @@ class DiscoverVariant extends AbstractVariant
 
         $cachedModules = [];
         if ($isCached) {
-            $cachedModules = require $cacheFile;
+            $cachedModules = \Jengo\Base\Support\JengoDirectory::readPhpArray($cacheFile);
         }
 
         $tbody = [];

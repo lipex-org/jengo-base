@@ -46,9 +46,8 @@ class DiscoverVariant implements CommandVariantInterface
         $checkedPaths = [];
 
         // Add root path first
-        $rootManifest = ROOTPATH . '.jengo/ai-manifest.json';
-        if (file_exists($rootManifest)) {
-            $content = json_decode(file_get_contents($rootManifest), true);
+        if (\Jengo\Base\Support\JengoDirectory::has('ai-manifest.json')) {
+            $content = \Jengo\Base\Support\JengoDirectory::readJson('ai-manifest.json');
             if (is_array($content) && $this->validateManifest($content)) {
                 $manifests['app'] = $content;
             }
@@ -106,14 +105,8 @@ class DiscoverVariant implements CommandVariantInterface
             'dynamic_capabilities' => $dynamicCapabilities,
         ];
 
-        $outputDir = ROOTPATH . '.jengo/ai';
-        if (!is_dir($outputDir)) {
-            mkdir($outputDir, 0755, true);
-        }
-
-        $outputJsonPath = $outputDir . '/manifest.json';
-        file_put_contents($outputJsonPath, json_encode($compiled, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
-        CLI::write("Compiled manifest saved to: [{$outputJsonPath}]", 'green');
+        \Jengo\Base\Support\JengoDirectory::writeJson('ai/manifest.json', $compiled);
+        CLI::write("Compiled manifest saved to: [" . \Jengo\Base\Support\JengoDirectory::path('ai/manifest.json') . "]", 'green');
 
         // 4. Generate rules.md (Generic JSON-to-Markdown Compiler)
         $markdown = "# Jengo AI Coding Rules & Context\n";
@@ -142,9 +135,8 @@ class DiscoverVariant implements CommandVariantInterface
             }
         }
 
-        $outputRulesPath = $outputDir . '/rules.md';
-        file_put_contents($outputRulesPath, $markdown);
-        CLI::write("AI development rules saved to: [{$outputRulesPath}]", 'green');
+        \Jengo\Base\Support\JengoDirectory::put('ai/rules.md', $markdown);
+        CLI::write("AI development rules saved to: [" . \Jengo\Base\Support\JengoDirectory::path('ai/rules.md') . "]", 'green');
 
         // 5. Ask for target IDEs/agents if empty and interactive
         $targets = $config->aiTargets ?? [];
