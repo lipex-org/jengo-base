@@ -216,8 +216,13 @@ if (!function_exists('sqids_instance')) {
     {
         static $instance = null;
         if ($instance === null) {
-            $config = config('Sqids') ?? new \Jengo\Base\Config\Sqids();
-            $instance = new \Sqids\Sqids($config->alphabet, $config->minLength);
+            $jengoConfig = config('Jengo') ?? new \Jengo\Base\Config\Jengo();
+            $sqidsConfig = $jengoConfig->sqids ?? [];
+
+            $alphabet = $sqidsConfig['alphabet'] ?? 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            $minLength = (int) ($sqidsConfig['minLength'] ?? 10);
+
+            $instance = new \Sqids\Sqids($alphabet, $minLength);
         }
         return $instance;
     }

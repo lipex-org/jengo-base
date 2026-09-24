@@ -4,30 +4,45 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Vite\Repositories;
 
-use Jengo\Base\Config\Vite as ViteConfig;
+use Jengo\Base\Config\Jengo as JengoConfig;
 use Jengo\Base\Support\JengoDirectory;
 use Jengo\Base\Vite\ViteEntryPointScanner;
 
 class ViteRepository
 {
-    protected ViteConfig $config;
+    /**
+     * @var array{entrypoints: string[], searchPaths: string[]}
+     */
+    protected array $config;
 
     public function __construct()
     {
         helper('Jengo\Base\Helpers\jengo');
-        $this->config = config('Vite');
+        $jengoConfig = config('Jengo') ?? new JengoConfig();
+        $viteConfig = $jengoConfig->vite ?? [];
+
+        $this->config = [
+            'entrypoints' => $viteConfig['entrypoints'] ?? [],
+            'searchPaths' => $viteConfig['searchPaths'] ?? [
+                APPPATH,
+                ROOTPATH . 'resources',
+            ],
+        ];
     }
 
     protected string $cacheFile = 'vite_entrypoints.json';
 
-    public function getFullConfig(bool $reset = false): ViteConfig
+    /**
+     * @return array{entrypoints: string[], searchPaths: string[]}
+     */
+    public function getFullConfig(bool $reset = false): array
     {
-        $this->config->entrypoints = array_unique([
+        $this->config['entrypoints'] = array_unique([
             ...$this->loadEntrypoints($reset),
-            ...$this->config->entrypoints
+            ...$this->config['entrypoints'],
         ]);
 
-        $this->config->searchPaths = $this->loadSearchPaths();
+        $this->config['searchPaths'] = $this->loadSearchPaths();
 
         return $this->config;
     }
@@ -47,11 +62,14 @@ class ViteRepository
         JengoDirectory::writeJson($this->cacheFile, $data);
     }
 
-    public function scan(bool $reset = false): ViteConfig
+    /**
+     * @return array{entrypoints: string[], searchPaths: string[]}
+     */
+    public function scan(bool $reset = false): array
     {
         $config = $this->getFullConfig($reset);
 
-        $this->cacheEntrypoints($config->entrypoints);
+        $this->cacheEntrypoints($config['entrypoints']);
 
         return $config;
     }
@@ -63,7 +81,7 @@ class ViteRepository
             APPPATH . 'Client',
             ROOTPATH . 'client',
             ROOTPATH . 'resources',
-            ...$this->config->searchPaths,
+            ...$this->config['searchPaths'],
         ]);
     }
 }
