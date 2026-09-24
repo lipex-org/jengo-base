@@ -179,6 +179,8 @@ trait IsSetupOrInstaller
             return;
         }
 
+        helper("Jengo\Base\Helpers\jengo");
+
         rescue(function () use ($path, $helpers) {
             ClassModifier::fromFile($path)
                 ->mutateArrayProperty('helpers', function (array $existing) use ($helpers) {
