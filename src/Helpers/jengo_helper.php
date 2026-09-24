@@ -650,3 +650,29 @@ if (!function_exists('error')) {
     }
 }
 
+
+if (!function_exists('app')) {
+    /**
+     * Get the available container instance or resolve a dependency.
+     */
+    function app(?string $abstract = null, array $parameters = []): mixed
+    {
+        $container = \Jengo\Base\Container\Container::getInstance();
+
+        if ($abstract === null) {
+            return $container;
+        }
+
+        return $container->make($abstract, $parameters);
+    }
+}
+
+if (!function_exists('resolve')) {
+    /**
+     * Resolve a service or class from the container.
+     */
+    function resolve(string $abstract, array $parameters = []): mixed
+    {
+        return \Jengo\Base\Container\Container::getInstance()->make($abstract, $parameters);
+    }
+}
