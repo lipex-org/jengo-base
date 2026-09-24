@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Jengo\Base\Container\Traits;
 
 use CodeIgniter\Exceptions\PageNotFoundException;
+use Config\Services;
 use Jengo\Base\Container\Container;
 use Jengo\Base\Container\ContainerInterface;
 
@@ -56,6 +57,27 @@ trait HasContainer
             throw PageNotFoundException::forMethodNotFound($method);
         }
 
+        $this->ensureControllerInitialized();
+
         return Container::getInstance()->call([$this, $method], $params);
+    }
+
+    /**
+     * Ensure controller properties (request, response, logger) are populated
+     * even when constructed directly via DI Container without initController().
+     */
+    protected function ensureControllerInitialized(): void
+    {
+        if (property_exists($this, 'request') && (! isset($this->request) || $this->request === null)) {
+            $this->request = Services::request();
+        }
+
+        if (property_exists($this, 'response') && (! isset($this->response) || $this->response === null)) {
+            $this->response = Services::response();
+        }
+
+        if (property_exists($this, 'logger') && (! isset($this->logger) || $this->logger === null)) {
+            $this->logger = Services::logger();
+        }
     }
 }
