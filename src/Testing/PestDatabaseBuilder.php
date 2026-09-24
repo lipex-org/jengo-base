@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace Jengo\Base\Testing;
 
 use CodeIgniter\Test\CIUnitTestCase;
-use CodeIgniter\Test\DatabaseTestTrait;
 use Jengo\Base\Support\JengoDirectory;
 
 /**
@@ -133,6 +132,18 @@ class PestDatabaseBuilder
 
         if (function_exists('pest')) {
             pest()->extend($className)->in(...$directories);
+        }
+    }
+
+    /**
+     * Generates a physical test case class and applies it to the current test file via uses().
+     */
+    public function use(): void
+    {
+        $className = $this->ensureTestCaseClass();
+
+        if (function_exists('uses')) {
+            uses($className);
         }
     }
 
