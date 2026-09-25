@@ -2,5 +2,5 @@
 
 use Tests\TestCase;
 
-pest()->extend(TestCase::class)->in('feature');
+pest()->extend(TestCase::class)->in('feature/session');
 
