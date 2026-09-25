@@ -136,4 +136,40 @@ PHP;
         $this->assertStringContainsString('use \\Jengo\\Base\\Container\\Traits\\HasContainer;', $rendered);
         $this->assertStringContainsString("protected \$theme = 'dark';", $rendered);
     }
+
+    public function testMutateArrayPropertyPreservesNamespacedHelperStrings(): void
+    {
+        $code = <<<'PHP'
+<?php
+
+namespace Config;
+
+use CodeIgniter\Config\AutoloadConfig;
+
+class Autoload extends AutoloadConfig
+{
+    public $helpers = [
+        'form',
+    ];
 }
+PHP;
+
+        $modifier = ClassModifier::fromString($code);
+        $modifier->mutateArrayProperty('helpers', static function (array $helpers) {
+            $helpers[] = 'Jengo\Base\Helpers\jengo';
+            $helpers[] = 'CodeIgniter\Shield\Helpers\auth';
+            $helpers[] = 'CodeIgniter\Settings\Helpers\setting';
+            return $helpers;
+        });
+
+        $rendered = $modifier->render();
+
+        $this->assertStringContainsString("'Jengo\\Base\\Helpers\\jengo'", $rendered);
+        $this->assertStringContainsString("'CodeIgniter\\Shield\\Helpers\\auth'", $rendered);
+        $this->assertStringContainsString("'CodeIgniter\\Settings\\Helpers\\setting'", $rendered);
+        $this->assertStringNotContainsString('jengo::class', $rendered);
+        $this->assertStringNotContainsString('auth::class', $rendered);
+        $this->assertStringNotContainsString('setting::class', $rendered);
+    }
+}
+

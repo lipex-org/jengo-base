@@ -486,20 +486,22 @@ class ClassModifier
     }
 
     /**
-     * Determine if a string is a class name (e.g. contains backslash or matches known imports / PascalCase class).
+     * Determine if a string is a class name (e.g. contains backslash and ends with PascalCase, or single PascalCase class).
      */
     private function isClassString(string $val): bool
     {
-        if (str_contains($val, '\\')) {
-            return true;
+        // Must contain valid PHP identifier characters
+        if (! preg_match('/^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff\\\\]*$/', $val)) {
+            return false;
         }
 
-        // PascalCase single class identifier (e.g. CSRF, DebugToolbar, Cors)
-        if (preg_match('/^[A-Z][A-Za-z0-9_]*$/', $val)) {
-            return true;
-        }
+        // Extract final class segment
+        $segments = explode('\\', $val);
+        $lastSegment = end($segments);
 
-        return false;
+        // A class name's final segment must start with uppercase letter (PascalCase)
+        // This avoids converting namespaced helper files or snake_case/lowercase paths to ::class
+        return preg_match('/^[A-Z][A-Za-z0-9_]*$/', $lastSegment) === 1;
     }
 
     /**
