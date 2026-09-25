@@ -28,14 +28,31 @@ class PestDatabaseBuilder
     public const CACHE_FILE = 'cache/pest_test_cases.json';
 
     /**
-     * The seeder class to run before each test.
+     * The seeder class(es) to run before tests.
+     *
+     * @var list<string>|string
      */
-    protected string $seed = '';
+    protected array|string $seed = '';
 
     /**
-     * Whether to run migrations before each test.
+     * Whether to seed only once per test case run.
+     */
+    protected bool $seedOnce = false;
+
+    /**
+     * Whether to run migrations before tests.
      */
     protected bool $migrate = true;
+
+    /**
+     * Whether to migrate only once per test case run.
+     */
+    protected bool $migrateOnce = false;
+
+    /**
+     * Whether to refresh (rollback) migrations before migrating.
+     */
+    protected bool $refresh = true;
 
     /**
      * The database group name to use for tests.
@@ -48,9 +65,11 @@ class PestDatabaseBuilder
     protected string $basePath = '';
 
     /**
-     * The namespace for database classes.
+     * The namespace(s) for database classes.
+     *
+     * @var list<string>|string|null
      */
-    protected string $namespace = 'Tests\\Support';
+    protected array|string|null $namespace = 'Tests\\Support';
 
     // -----------------------------------------------------------------------
     // Factory
@@ -69,11 +88,23 @@ class PestDatabaseBuilder
     // -----------------------------------------------------------------------
 
     /**
-     * Set the seeder class to execute before each test.
+     * Set the seeder class(es) to execute before tests.
+     *
+     * @param list<string>|string $seederClass
      */
-    public function seed(string $seederClass): self
+    public function seed(array|string $seederClass): self
     {
         $this->seed = $seederClass;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable seeding only once per test case run.
+     */
+    public function seedOnce(bool $seedOnce = true): self
+    {
+        $this->seedOnce = $seedOnce;
 
         return $this;
     }
@@ -89,6 +120,26 @@ class PestDatabaseBuilder
     }
 
     /**
+     * Enable or disable migrating only once per test case run.
+     */
+    public function migrateOnce(bool $migrateOnce = true): self
+    {
+        $this->migrateOnce = $migrateOnce;
+
+        return $this;
+    }
+
+    /**
+     * Enable or disable refreshing (rolling back) migrations before running.
+     */
+    public function refresh(bool $refresh = true): self
+    {
+        $this->refresh = $refresh;
+
+        return $this;
+    }
+
+    /**
      * Set the database connection group name.
      */
     public function group(string $dbGroup): self
@@ -99,9 +150,11 @@ class PestDatabaseBuilder
     }
 
     /**
-     * Set the namespace for database files.
+     * Set the namespace(s) for database files.
+     *
+     * @param list<string>|string|null $namespace
      */
-    public function namespace(string $namespace): self
+    public function namespace(array|string|null $namespace): self
     {
         $this->namespace = $namespace;
 
@@ -205,7 +258,10 @@ class PestDatabaseBuilder
     protected function generateClassCode(string $namespace, string $shortName, array $config): string
     {
         $seedVal = var_export($config['seed'], true);
+        $seedOnceVal = var_export($config['seedOnce'], true);
         $migrateVal = var_export($config['migrate'], true);
+        $migrateOnceVal = var_export($config['migrateOnce'], true);
+        $refreshVal = var_export($config['refresh'], true);
         $dbGroupVal = var_export($config['dbGroup'], true);
         $basePathVal = var_export($config['basePath'], true);
         $namespaceVal = var_export($config['namespace'], true);
@@ -229,7 +285,10 @@ class {$shortName} extends CIUnitTestCase
     use DatabaseTestTrait;
 
     protected \$seed = {$seedVal};
+    protected \$seedOnce = {$seedOnceVal};
     protected \$migrate = {$migrateVal};
+    protected \$migrateOnce = {$migrateOnceVal};
+    protected \$refresh = {$refreshVal};
     protected \$DBGroup = {$dbGroupVal};
     protected \$basePath = {$basePathVal};
     protected \$namespace = {$namespaceVal};
@@ -246,11 +305,14 @@ PHP;
     private function buildConfig(): array
     {
         return [
-            'seed'      => $this->seed,
-            'migrate'   => $this->migrate,
-            'dbGroup'   => $this->dbGroup,
-            'basePath'  => $this->basePath,
-            'namespace' => $this->namespace,
+            'seed'        => $this->seed,
+            'seedOnce'    => $this->seedOnce,
+            'migrate'     => $this->migrate,
+            'migrateOnce' => $this->migrateOnce,
+            'refresh'     => $this->refresh,
+            'dbGroup'     => $this->dbGroup,
+            'basePath'    => $this->basePath,
+            'namespace'   => $this->namespace,
         ];
     }
 }
