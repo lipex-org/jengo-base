@@ -5,10 +5,14 @@ declare(strict_types=1);
 namespace Jengo\Base\Config;
 
 use CodeIgniter\Config\BaseService;
+use CodeIgniter\Router\RouteCollection;
+use Config\Modules;
+use Config\Routing;
 use Jengo\Base\Container\Container;
 use Jengo\Base\Container\ContainerInterface;
+use Jengo\Base\Libraries\ModuleDiscovery;
 use Jengo\Base\Support\ResponseHandler;
-
+use Config\Services as AppServices;
 class Services extends BaseService
 {
     public static function container(bool $getShared = true): ContainerInterface
@@ -27,5 +31,22 @@ class Services extends BaseService
         }
 
         return new ResponseHandler();
+    }
+
+    /**
+     * The Routes service is a class that allows for easily building
+     * a collection of routes.
+     *
+     * @return RouteCollection
+     */
+    public static function routes(bool $getShared = true)
+    {
+        if ($getShared) {
+            return static::getSharedInstance('routes');
+        }
+
+        ModuleDiscovery::discoverAndRegister();
+
+        return new RouteCollection(AppServices::get('locator'), new Modules(), config(Routing::class));
     }
 }
