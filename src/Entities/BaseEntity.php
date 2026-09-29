@@ -7,15 +7,18 @@ namespace Jengo\Base\Entities;
 use CodeIgniter\Entity\Entity;
 use Jengo\Base\Entities\Casts\CastPgBoolean;
 use Jengo\Base\Mapping\Contracts\MappableInterface;
+use Jengo\Base\Traits\MacroableTrait;
 use Jengo\Base\Traits\MappableTrait;
 
 class BaseEntity extends Entity implements MappableInterface
 {
     use MappableTrait;
+    use MacroableTrait;
 
     protected $castHandlers = [
         'pg_bool' => CastPgBoolean::class,
     ];
+
     /**
      * Fields that should be visible in JSON serialization.
      * If not empty, only these fields will be serialized.
