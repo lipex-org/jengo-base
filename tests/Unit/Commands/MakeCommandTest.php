@@ -28,6 +28,7 @@ final class MakeCommandTest extends CommandTestCase
             APPPATH . 'Repositories/OrderRepository.php',
             APPPATH . 'Views/pages/dashboard.page.php',
             APPPATH . 'Events/UserRegistered.php',
+            APPPATH . 'Macros/UserMacros.php',
         ];
 
         foreach ($files as $file) {
@@ -36,6 +37,21 @@ final class MakeCommandTest extends CommandTestCase
             }
         }
     }
+
+    public function testMakeMacroGeneratesFile(): void
+    {
+        command('jengo:make macro UserMacros --target="App\\\\Entities\\\\User"');
+        $output = $this->io->getOutput();
+
+        $this->assertStringContainsString('File created:', $output);
+        $expectedPath = APPPATH . 'Macros/UserMacros.php';
+        $this->assertFileExists($expectedPath);
+
+        $content = (string) file_get_contents($expectedPath);
+        $this->assertStringContainsString('class UserMacros', $content);
+        $this->assertStringContainsString('App\Entities\User', $content);
+    }
+
 
     public function testMakeActionGeneratesFile(): void
     {

@@ -22,10 +22,20 @@ class Registrar
                     'event' => [
                         'event' => 'Jengo\Base\Commands\Generators\Views\Events\event.tpl.php',
                         'listener' => 'Jengo\Base\Commands\Generators\Views\Events\listener.tpl.php'
-                    ]
+                    ],
+                    'macro' => 'Jengo\Base\Commands\Generators\Views\macro.tpl.php'
                 ],
-
             ]
         ];
     }
+
+    public static function Modules(): array
+    {
+        return [
+            'aliases' => [
+                'macros',
+            ],
+        ];
+    }
 }
+

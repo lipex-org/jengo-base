@@ -6,6 +6,7 @@ namespace Jengo\Base\Events;
 
 use CodeIgniter\Events\Events;
 use Jengo\Base\Container\BindingScanner;
+use Jengo\Base\Libraries\MacroDiscovery;
 use Jengo\Base\Libraries\ModuleDiscovery;
 
 class AppLifecycle
@@ -32,6 +33,9 @@ class AppLifecycle
 
         // 3. Discover and register ecosystem modules
         ModuleDiscovery::discoverAndRegister();
+
+        // 4. Discover and register macros
+        MacroDiscovery::discoverAndRegister();
     }
 
     /**
@@ -40,5 +44,7 @@ class AppLifecycle
     public static function reset(): void
     {
         self::$initialized = false;
+        MacroDiscovery::reset();
     }
 }
+
