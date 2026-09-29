@@ -44,6 +44,50 @@ final class ModulesCommandTest extends CommandTestCase
         $this->assertFileDoesNotExist(ROOTPATH . '.jengo/cache/modules.php');
     }
 
+    public function testModulesPatchCommand(): void
+    {
+        $bootFile = SYSTEMPATH . 'Boot.php';
+        $eventsFile = APPPATH . 'Config/Events.php';
+
+        $bootBackup = is_file($bootFile) ? file_get_contents($bootFile) : null;
+        $eventsBackup = is_file($eventsFile) ? file_get_contents($eventsFile) : null;
+
+        try {
+            // Run check option
+            command('jengo:modules patch --check');
+            $outputCheck = $this->io->getOutput();
+            $this->assertStringContainsString('Checking CodeIgniter 4 Autoloader integration', $outputCheck);
+
+            // Run patch variant
+            command('jengo:modules patch');
+            $output = $this->io->getOutput();
+            $this->assertStringContainsString('Autoloader mitigation completed successfully', $output);
+
+            // Verify Boot.php contains trigger
+            $bootContent = file_get_contents($bootFile);
+            $this->assertStringContainsString("Events::trigger('autoloader_initialized')", $bootContent);
+
+            // Verify Events.php contains listener
+            $eventsContent = file_get_contents($eventsFile);
+            $this->assertStringContainsString('autoloader_initialized', $eventsContent);
+            $this->assertStringContainsString('ModuleDiscovery::discoverAndRegister', $eventsContent);
+
+            // Run check again to verify Patched and Subscribed status
+            command('jengo:modules patch --check');
+            $outputCheckAfter = $this->io->getOutput();
+            $this->assertStringContainsString('Patched', $outputCheckAfter);
+            $this->assertStringContainsString('Subscribed', $outputCheckAfter);
+        } finally {
+            // Restore original files
+            if ($bootBackup !== null) {
+                file_put_contents($bootFile, $bootBackup);
+            }
+            if ($eventsBackup !== null) {
+                file_put_contents($eventsFile, $eventsBackup);
+            }
+        }
+    }
+
     private function cleanFileSystem(): void
     {
         $dummyModuleDir = ROOTPATH . 'modules/TestDummyModule';

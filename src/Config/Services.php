@@ -32,21 +32,4 @@ class Services extends BaseService
 
         return new ResponseHandler();
     }
-
-    /**
-     * The Routes service is a class that allows for easily building
-     * a collection of routes.
-     *
-     * @return RouteCollection
-     */
-    public static function routes(bool $getShared = true)
-    {
-        if ($getShared) {
-            return static::getSharedInstance('routes');
-        }
-
-        ModuleDiscovery::discoverAndRegister();
-
-        return new RouteCollection(AppServices::get('locator'), new Modules(), config(Routing::class));
-    }
 }
