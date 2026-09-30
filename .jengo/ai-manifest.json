@@ -1,16 +1,51 @@
 {
   "name": "jengo/base",
-  "description": "Core package of the Jengo framework. Integrates Vite, static & fluent Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, dynamic module autoloading, fluent array/string wrappers, bidirectional data mapping, and modern developer ergonomics.",
+  "description": "Core package of the Jengo framework. Integrates Vite, Dependency Injection container, dynamic Macros & Mixins, static & fluent Model Facades, robust event triggers, validation form handlers, JSON entities with Sqids obfuscation, dynamic module autoloading, fluent array/string wrappers, bidirectional data mapping, Pest database testing, and modern developer ergonomics.",
   "models": [
     {
       "class": "Jengo\\Base\\Entities\\BaseEntity",
-      "description": "Entity representing standard schemas. Provides JsonSerializable control via visible/hidden arrays, and Sqids-based integer ID obfuscation.",
+      "description": "Entity representing standard schemas. Uses MacroableTrait for dynamic runtime extension, provides JsonSerializable control via visible/hidden arrays, and Sqids-based integer ID obfuscation.",
       "properties": {
         "visible": "array of property names allowed during JSON serialization",
         "hidden": "array of property names stripped during JSON serialization",
         "obfuscatedFields": "array of integer ID properties (e.g. ['id', 'user_id']) to encode/decode using Sqids"
       },
       "usage": "class UserEntity extends BaseEntity { protected array $obfuscatedFields = ['id']; protected array $hidden = ['password']; }"
+    }
+  ],
+  "macros": [
+    {
+      "trait": "Jengo\\Base\\Traits\\MacroableTrait",
+      "description": "Enables dynamic method injection, closure binding ($this), static macros, and mixins on any class.",
+      "discovery": "app/Config/Macros.php and modules/*/Config/Macros.php via MacroDiscovery and Config\\Modules::$aliases",
+      "methods": {
+        "macro": "macro(string $name, object|callable $macro): void (Registers a single dynamic method)",
+        "mixin": "mixin(object|string $mixin, bool $replace = true): void (Registers all public methods returning Closure from a mixin class)",
+        "hasMacro": "hasMacro(string $name): bool (Checks if macro exists)",
+        "flushMacros": "flushMacros(): void (Clears registered macros)"
+      },
+      "usage": "User::macro('hasRole', function(string $role) { return $this->role === $role; });\nUser::mixin(new UserMacros());"
+    }
+  ],
+  "container": [
+    {
+      "class": "Jengo\\Base\\Container\\Container",
+      "description": "PSR-11 compatible Dependency Injection container supporting autowiring, singleton binding, contextual binding, method injection, and tagged services.",
+      "helpers": {
+        "app": "app(?string $abstract = null, array $parameters = []): mixed",
+        "resolve": "resolve(string $abstract, array $parameters = []): mixed",
+        "inject": "inject(callable|array|string $target): Closure (wraps route actions with automatic DI parameter resolution)"
+      },
+      "methods": {
+        "bind": "bind(string $abstract, Closure|string|null $concrete = null, bool $shared = false): void",
+        "singleton": "singleton(string $abstract, Closure|string|null $concrete = null): void",
+        "instance": "instance(string $abstract, mixed $instance): mixed",
+        "make": "make(string $abstract, array $parameters = []): mixed",
+        "call": "call(callable|array|string $callback, array $parameters = [], ?string $defaultMethod = null): mixed",
+        "has": "has(string $id): bool",
+        "get": "get(string $id): mixed"
+      },
+      "usage": "app()->singleton(PaymentGatewayInterface::class, StripeGateway::class);\n$routes->get('orders/(:num)', inject(function(int $id, OrderService $service) { ... }));"
     }
   ],
   "facades": [
@@ -157,6 +192,15 @@
         "tap": "tap(callable $callback): static"
       },
       "usage": "$slug = str('My Title')->kebab()->toString();"
+    },
+    {
+      "class": "Jengo\\Base\\Libraries\\MacroDiscovery",
+      "description": "Discovers and loads app/Config/Macros.php on boot and searches modules/*/Config/Macros.php and packages when Config\\Modules::$aliases has 'macros'.",
+      "methods": {
+        "discoverAndRegister": "discoverAndRegister(): void",
+        "reset": "reset(): void"
+      },
+      "usage": "MacroDiscovery::discoverAndRegister();"
     }
   ],
   "modules": [
@@ -171,7 +215,38 @@
       "usage": "ModuleDiscovery::discoverAndRegister();"
     }
   ],
+  "testing": [
+    {
+      "class": "Jengo\\Base\\Testing\\PestDatabaseBuilder",
+      "description": "Fluent Pest database test configuration builder eliminating beforeEach database boilerplate.",
+      "methods": {
+        "make": "PestDatabaseBuilder::make(): self",
+        "seed": "seed(string $seederClass): self",
+        "migrate": "migrate(bool $migrate = true): self",
+        "group": "group(string $dbGroup): self",
+        "namespace": "namespace(string $namespace): self",
+        "basePath": "basePath(string $basePath): self",
+        "in": "in(string $directory): void"
+      },
+      "usage": "PestDatabaseBuilder::make()->seed(TestDatabaseSeeder::class)->in('feature/database');"
+    }
+  ],
   "helpers": [
+    {
+      "name": "app",
+      "signature": "app(?string $abstract = null, array $parameters = []): mixed",
+      "description": "Get the available container instance or resolve a dependency."
+    },
+    {
+      "name": "resolve",
+      "signature": "resolve(string $abstract, array $parameters = []): mixed",
+      "description": "Resolve a service or class from the container."
+    },
+    {
+      "name": "inject",
+      "signature": "inject(callable|array|string $target): Closure",
+      "description": "Wrap a closure or controller method into a DI-aware route handler."
+    },
     {
       "name": "tap",
       "signature": "tap(mixed $value, ?callable $callback = null): mixed",
@@ -300,10 +375,6 @@
   ],
   "commands": [
     {
-      "name": "jengo:kit",
-      "description": "Inspect installation and integration status across all ecosystem packages (api, auth, broadcasting, storage, notifications, ai, pdf, inertia, schema, vite-plugin)."
-    },
-    {
       "name": "jengo:setup",
       "description": "Bootstraps framework subsystems. Supports 'jengo:setup api', 'jengo:setup auth', 'jengo:setup shield-auth', etc."
     },
@@ -332,8 +403,32 @@
       "description": "Generate an Event and Listener."
     },
     {
+      "name": "jengo:make layout",
+      "description": "Generate a layout shell template in Views/layouts/."
+    },
+    {
+      "name": "jengo:make macro",
+      "description": "Generate a Macro mixin class in app/Macros/ with optional --target entity specification."
+    },
+    {
       "name": "jengo:make module",
       "description": "Generate a new Jengo module structure."
+    },
+    {
+      "name": "jengo:modules discover",
+      "description": "Scans and lists all active Jengo modules."
+    },
+    {
+      "name": "jengo:modules cache",
+      "description": "Compiles and caches module PSR-4 mappings for production."
+    },
+    {
+      "name": "jengo:modules clear",
+      "description": "Clears the compiled module mappings cache."
+    },
+    {
+      "name": "jengo:modules patch",
+      "description": "Applies the autoloader patch to ensure module discovery across CLI and test suites."
     },
     {
       "name": "jengo:ai discover",
@@ -344,16 +439,32 @@
       "description": "Runs application health status checks."
     },
     {
-      "name": "jengo optimize",
-      "description": "Optimize Jengo performance by compiling modules configuration map."
+      "name": "jengo:audit",
+      "description": "Audits application for security vulnerabilities and best practices."
+    },
+    {
+      "name": "jengo:optimize",
+      "description": "Optimizes Jengo performance by compiling module configuration maps."
     },
     {
       "name": "jengo:clear cache",
       "description": "Clear Jengo compiled module cache."
     },
     {
-      "name": "jengo:log:tail",
+      "name": "jengo:tail",
       "description": "Tails application logs in real-time with filtering options by level and search pattern."
+    },
+    {
+      "name": "jengo:tinker",
+      "description": "Interactive PHP REPL preloaded with Jengo CodeIgniter context."
+    },
+    {
+      "name": "jengo:sqids",
+      "description": "Interactive Sqids hashing and unhashing utility."
+    },
+    {
+      "name": "jengo:vite",
+      "description": "Runs Vite development server or build operations."
     }
   ]
 }
