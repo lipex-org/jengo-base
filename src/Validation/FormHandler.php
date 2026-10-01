@@ -126,10 +126,17 @@ abstract class FormHandler
      */
     public function validate(): bool
     {
+        $rules = $this->getRules();
+        if (empty($rules)) {
+            throw new \LogicException(
+                sprintf('FormHandler [%s] must define validation rules in the $rules property or getRules() method.', static::class)
+            );
+        }
+
         // Reset the validation service state/errors before running
         $this->validator->reset();
 
-        $this->validator->setRules($this->getRules(), $this->getMessages());
+        $this->validator->setRules($rules, $this->getMessages());
 
         // Extract groups
         $get = $this->request->getGet() ?? [];

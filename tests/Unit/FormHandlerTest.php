@@ -170,6 +170,15 @@ final class FormHandlerTest extends CIUnitTestCase
         $attribute->before($request);
     }
 
+    public function testFormHandlerThrowsOnEmptyRules()
+    {
+        $handler = new class extends FormHandler {};
+
+        $this->expectException(\LogicException::class);
+        $this->expectExceptionMessage('must define validation rules');
+        $handler->validate();
+    }
+
     public function testFormHandlerDeobfuscatesValues()
     {
         // Setup sqids hash
