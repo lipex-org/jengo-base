@@ -64,11 +64,12 @@ class BaseEntity extends Entity implements MappableInterface
     }
 
     /**
-     * Customize JSON serialization to support visible, hidden, and obfuscated fields.
+     * Customize JSON serialization to support visible, hidden, and obfuscated fields,
+     * while preserving and recursively executing jsonSerialize on nested entities and collections.
      */
     public function jsonSerialize(): array
     {
-        $data = $this->toArray(false, true, true);
+        $data = $this->toArray(false, true, false);
 
         // Filter visible fields
         if (!empty($this->visible)) {
@@ -89,6 +90,34 @@ class BaseEntity extends Entity implements MappableInterface
             }
         }
 
+        // Recursively serialize nested JsonSerializable/BaseEntity objects and collections
+        foreach ($data as $key => $val) {
+            if ($val instanceof \JsonSerializable) {
+                $data[$key] = $val->jsonSerialize();
+            } elseif (is_array($val)) {
+                $data[$key] = $this->serializeNestedArray($val);
+            }
+        }
+
         return $data;
+    }
+
+    /**
+     * Helper to recursively serialize nested arrays containing JsonSerializable items.
+     */
+    private function serializeNestedArray(array $items): array
+    {
+        $result = [];
+        foreach ($items as $k => $item) {
+            if ($item instanceof \JsonSerializable) {
+                $result[$k] = $item->jsonSerialize();
+            } elseif (is_array($item)) {
+                $result[$k] = $this->serializeNestedArray($item);
+            } else {
+                $result[$k] = $item;
+            }
+        }
+
+        return $result;
     }
 }

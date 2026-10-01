@@ -136,6 +136,51 @@ final class MapperTest extends CIUnitTestCase
         Mapper::clearRegistry();
     }
 
+    public function testMapFromEntityWithNestedEntitiesToBaseEntity(): void
+    {
+        $foreign = new ForeignUserEntity([
+            'id' => 101,
+            'username' => 'nested_tester',
+            'email_address' => 'nested@example.com',
+            'secret_token' => 'pass',
+        ]);
+
+        $profile = new class(['id' => 505, 'bio' => 'Dev']) extends BaseEntity {
+            protected array $obfuscatedFields = ['id'];
+        };
+
+        $identity = new class(['id' => 909, 'provider' => 'oauth']) extends BaseEntity {
+            protected array $obfuscatedFields = ['id'];
+        };
+
+        $foreign->profile = $profile;
+        $foreign->identities = [$identity];
+
+        $mappedUser = Mapper::map($foreign, AppUserEntity::class);
+
+        $this->assertInstanceOf(AppUserEntity::class, $mappedUser);
+        $this->assertSame(101, $mappedUser->id);
+        $this->assertSame($profile, $mappedUser->profile);
+        $this->assertSame([$identity], $mappedUser->identities);
+
+        // Test jsonSerialize output
+        $serialized = $mappedUser->jsonSerialize();
+        $this->assertIsString($serialized['id']);
+        $this->assertNotEquals('101', $serialized['id']);
+
+        // Profile ID should be obfuscated
+        $this->assertIsArray($serialized['profile']);
+        $this->assertIsString($serialized['profile']['id']);
+        $this->assertNotEquals('505', $serialized['profile']['id']);
+        $this->assertSame('Dev', $serialized['profile']['bio']);
+
+        // Identity ID should be obfuscated
+        $this->assertIsArray($serialized['identities']);
+        $this->assertIsString($serialized['identities'][0]['id']);
+        $this->assertNotEquals('909', $serialized['identities'][0]['id']);
+        $this->assertSame('oauth', $serialized['identities'][0]['provider']);
+    }
+
     public function testThrowsExceptionForNonExistentTarget(): void
     {
         $this->expectException(MappingException::class);
@@ -148,3 +193,4 @@ final class MapperTest extends CIUnitTestCase
         Mapper::map(12345, AppUserEntity::class);
     }
 }
+
