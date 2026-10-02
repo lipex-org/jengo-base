@@ -445,7 +445,7 @@ class Container implements ContainerInterface
             return new ValidatedData(
                 get: (array) ($request->getGet() ?? []),
                 post: (array) ($request->getPost() ?? []),
-                json: (array) ($request->getJSON(true) ?? []),
+                json: (array) (\Jengo\Base\Facades\Request::json($request)),
                 router: []
             );
         }

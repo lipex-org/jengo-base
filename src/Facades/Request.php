@@ -2,6 +2,7 @@
 
 namespace Jengo\Base\Facades;
 
+use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\Response;
 use Jengo\Base\Exceptions\InterruptExecutionException;
 
@@ -69,6 +70,33 @@ class Request
     }
 
     /**
+     * Safely parse JSON payload from request without throwing HTTPException on malformed or non-JSON payloads.
+     */
+    public static function json(?RequestInterface $request = null): array
+    {
+        $req = $request ?? (function_exists('request') ? request() : \Config\Services::request());
+
+        if (method_exists($req, 'getBody')) {
+            $raw = (string) $req->getBody();
+            if ($raw !== '') {
+                $trimmed = trim($raw);
+                if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+                    try {
+                        $decoded = json_decode($trimmed, true);
+                        if (is_array($decoded)) {
+                            return $decoded;
+                        }
+                    } catch (\Throwable) {
+                        // Ignore malformed JSON
+                    }
+                }
+            }
+        }
+
+        return [];
+    }
+
+    /**
      * Validates incoming request data against the provided validation rules.
      *
      * Automatically pulls JSON or POST data depending on the request content type.
@@ -93,11 +121,10 @@ class Request
 
         $validator->setRules($rules);
 
-        $data = match (true) {
-            !empty($request->getJSON(true)) => $request->getJSON(true),
-            !empty($request->getPost()) => $request->getPost(),
-            default => [],
-        };
+        $json = static::json($request);
+        $post = $request->getPost() ?? [];
+
+        $data = !empty($json) ? $json : (!empty($post) ? $post : []);
 
         $success = $validator->run($data);
 
@@ -117,36 +144,47 @@ class Request
      *
      * @param string|null $key The input key to retrieve.
      * @param mixed $default Fallback value if key is not found.
+     * @param \CodeIgniter\HTTP\RequestInterface|null $request Optional request instance
      * @return mixed The value associated with the input key, or all inputs.
      */
-    public static function input(?string $key = null, mixed $default = null): mixed
+    public static function input(?string $key = null, mixed $default = null, ?RequestInterface $request = null): mixed
     {
+        $all = static::all($request);
+
         if ($key === null) {
-            return static::all();
+            return $all;
         }
 
-        $val = request()->getVar($key);
-
-        if ($val !== null) {
-            return $val;
+        $req = $request ?? (function_exists('request') ? request() : \Config\Services::request());
+        if (method_exists($req, 'getVar')) {
+            $val = $req->getVar($key);
+            if ($val !== null) {
+                return $val;
+            }
         }
 
-        return data_get(static::all(), $key, $default);
+        return data_get($all, $key, $default);
     }
 
     /**
-     * Get all of the input and files for the request.
+     * Get all of the input and files for the request safely.
      */
-    public static function all(): array
+    public static function all(?RequestInterface $request = null): array
     {
-        $request = request();
-        $json = $request->getJSON(true);
+        $req = $request ?? (function_exists('request') ? request() : \Config\Services::request());
+        $get = method_exists($req, 'getGet') ? ($req->getGet() ?? []) : [];
+        $post = method_exists($req, 'getPost') ? ($req->getPost() ?? []) : [];
+        $json = static::json($req);
 
-        if (is_array($json) && !empty($json)) {
-            return array_merge($request->getGet(), $json);
+        if (!empty($json)) {
+            return array_merge($get, $json);
         }
 
-        return array_merge($request->getGet(), $request->getPost());
+        if (empty($post) && !empty($_POST)) {
+            $post = $_POST;
+        }
+
+        return array_merge($get, $post);
     }
 
     /**

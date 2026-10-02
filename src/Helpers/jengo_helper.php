@@ -698,3 +698,53 @@ if (!function_exists('inject')) {
         };
     }
 }
+
+if (!function_exists('request_input')) {
+    /**
+     * Safely retrieves input from the current HTTP request (JSON body, POST, GET, or raw input)
+     * checking headers and ensuring non-JSON requests never throw JSON parse exceptions.
+     *
+     * @param string|null $key Optional key to retrieve (supports dot notation)
+     * @param mixed $default Fallback value if key is not found
+     * @param \CodeIgniter\HTTP\RequestInterface|null $request Optional request instance
+     * @return mixed
+     */
+    function request_input(?string $key = null, mixed $default = null, ?\CodeIgniter\HTTP\RequestInterface $request = null): mixed
+    {
+        $req = $request ?? (function_exists('request') ? request() : \Config\Services::request());
+        return \Jengo\Base\Facades\Request::input($key, $default, $req);
+    }
+}
+
+if (!function_exists('qr_code')) {
+    /**
+     * Render a pure-PHP QR code in SVG, PNG, HTML img tag, or Base64 Data URI.
+     */
+    function qr_code(
+        string $text,
+        int $size = 120,
+        string $color = '#000000',
+        string $bgColor = '#ffffff',
+        int $margin = 4,
+        string $format = 'img'
+    ): string {
+        return \Jengo\Base\Support\QrCode::render($text, $size, $color, $bgColor, $margin, $format);
+    }
+}
+
+if (!function_exists('qr_data_uri')) {
+    /**
+     * Render a Base64 Data URI QR code suitable for inline <img src="..."> tags.
+     */
+    function qr_data_uri(
+        string $text,
+        int $size = 120,
+        string $color = '#000000',
+        string $bgColor = '#ffffff',
+        int $margin = 4
+    ): string {
+        return \Jengo\Base\Support\QrCode::pngDataUri($text, $size, $color, $bgColor, $margin);
+    }
+}
+
+
