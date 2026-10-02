@@ -145,6 +145,7 @@ final class AiCommandTest extends CommandTestCase
         $oldArgv = $_SERVER['argv'] ?? [];
         $_SERVER['argv'] = ['spark', 'jengo:ai', 'discover', '--ide', 'cursor,cline'];
         \CodeIgniter\CLI\CLI::init();
+        \CodeIgniter\CLI\CLI::setInputOutput($this->io);
 
         // Run command
         command('jengo:ai discover');
@@ -152,6 +153,7 @@ final class AiCommandTest extends CommandTestCase
         // Restore original argv
         $_SERVER['argv'] = $oldArgv;
         \CodeIgniter\CLI\CLI::init();
+        \CodeIgniter\CLI\CLI::setInputOutput($this->io);
 
         // Check that target rules are successfully created
         $this->assertFileExists(ROOTPATH . '.cursorrules');
