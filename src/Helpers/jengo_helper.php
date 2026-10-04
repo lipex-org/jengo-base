@@ -627,33 +627,49 @@ if (!function_exists('logger')) {
 
 if (!function_exists('info')) {
     /**
-     * Write an informational log message.
+     * Write an informational log message, or return the logger if no message is provided.
      */
-    function info(string $message, array $context = []): void
+    function info(?string $message = null, array $context = []): mixed
     {
+        if ($message === null) {
+            return \Config\Services::logger();
+        }
+
         log_message('info', $message, $context);
+        return null;
     }
 }
 
 if (!function_exists('warning')) {
     /**
-     * Write a warning log message.
+     * Write a warning log message, or return the logger if no message is provided.
      */
-    function warning(string $message, array $context = []): void
+    function warning(?string $message = null, array $context = []): mixed
     {
+        if ($message === null) {
+            return \Config\Services::logger();
+        }
+
         log_message('warning', $message, $context);
+        return null;
     }
 }
 
 if (!function_exists('error')) {
     /**
-     * Write an error log message.
+     * Write an error log message, or return the logger if no message is provided.
      */
-    function error(string $message, array $context = []): void
+    function error(?string $message = null, array $context = []): mixed
     {
+        if ($message === null) {
+            return \Config\Services::logger();
+        }
+
         log_message('error', $message, $context);
+        return null;
     }
 }
+
 
 
 if (!function_exists('app')) {
