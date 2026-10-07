@@ -21,6 +21,7 @@ abstract class AbstractMasterCommand extends BaseCommand
 
     /**
      * Orchestrates the routing to the appropriate variant.
+     * Supports arbitrary nesting levels (e.g. `jengo:pesa mpesa register-c2b` or `jengo:pesa mpesa:register-c2b`).
      */
     public function run(array $params)
     {
@@ -32,6 +33,18 @@ abstract class AbstractMasterCommand extends BaseCommand
         }
 
         $variant = VariantRepository::find($this->variantPath, $variantName);
+
+        // If not found directly, check if the next segment forms a compound name (e.g., 'mpesa:register-c2b')
+        if (!$variant && !empty($params) && !str_starts_with((string) $params[0], '-')) {
+            $nextSegment = array_shift($params);
+            $compoundName = $variantName . ':' . $nextSegment;
+            $variant = VariantRepository::find($this->variantPath, $compoundName);
+
+            // If still not found, put the segment back for fallback error reporting
+            if (!$variant) {
+                array_unshift($params, $nextSegment);
+            }
+        }
 
         if (!$variant) {
             CLI::error("Variant [{$variantName}] not found for command [{$this->name}].");

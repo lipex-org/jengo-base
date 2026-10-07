@@ -42,11 +42,24 @@ class VariantRepository
 
     /**
      * Finds a specific variant by name within a path.
+     * Supports exact name matching as well as hierarchical auto-resolution (e.g., 'mpesa:register-c2b' or 'register-c2b').
      */
     public static function find(string $path, string $name): ?CommandVariantInterface
     {
-        foreach (self::all($path) as $variant) {
+        $variants = self::all($path);
+
+        // 1. Direct name match
+        foreach ($variants as $variant) {
             if ($variant::name() === $name) {
+                return $variant;
+            }
+        }
+
+        // 2. Colon-separated prefix match (e.g. searching for 'mpesa' when variant is named 'mpesa' or subfolder is 'Mpesa')
+        $normalizedName = str_replace([':', '/'], '\\', strtolower($name));
+        foreach ($variants as $variant) {
+            $variantName = str_replace([':', '/'], '\\', strtolower($variant::name()));
+            if ($variantName === $normalizedName) {
                 return $variant;
             }
         }
