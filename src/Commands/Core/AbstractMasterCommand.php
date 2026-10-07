@@ -90,49 +90,126 @@ abstract class AbstractMasterCommand extends BaseCommand
     }
 
     /**
-     * Displays a dynamic help screen based on discovered variants.
+     * Displays a dynamic help screen based on discovered variants and supports nested variants.
+     *
+     * @param array|null $segments Optional segments to resolve nested help. Defaults to CLI segments.
      */
-    public function showHelp(): void
+    public function showHelp(?array $segments = null): void
     {
-        CLI::write("Usage:", 'yellow');
-        CLI::write("  {$this->name} <variant> [arguments] [options]");
-        CLI::newLine();
+        $params = $segments ?? CLI::getSegments();
 
-        $params = CLI::getSegments();
-        $variant = $params[1] ?? null;
-        $variantInstances = VariantRepository::all($this->variantPath);
-
-        if (!$variant) {
-            $this->showAvailableVariants();
-            return;
+        // If the first segment is the command name (e.g. 'jengo:pesa'), remove it
+        if (!empty($params) && $params[0] === $this->name) {
+            array_shift($params);
         }
 
-        $variantAvailable = false;
-        $variantInstance = null;
-        foreach ($variantInstances as $v) {
-            if ($v::name() === $variant) {
-                $variantAvailable = true;
-                $variantInstance = $v;
-                break;
-            }
-        }
+        // Filter out 'help' or 'list' keywords if provided as the trailing or leading token
+        $searchSegments = array_values(array_filter($params, static fn($s) => $s !== 'help' && $s !== 'list' && !str_starts_with((string) $s, '-')));
 
-        if (!$variantAvailable) {
-            CLI::error("Variant [{$variant}] not found for command [{$this->name}].");
+        if (empty($searchSegments)) {
+            CLI::write("Usage:", 'yellow');
+            CLI::write("  {$this->name} <variant> [arguments] [options]");
             CLI::newLine();
             $this->showAvailableVariants();
             return;
         }
 
+        // Recursively find the target variant across nesting levels
+        $currentPath = $this->variantPath;
+        $matchedVariant = null;
+        $matchedChain = [];
+
+        while (!empty($searchSegments)) {
+            $seg = array_shift($searchSegments);
+            $matchedChain[] = $seg;
+
+            // 1. Try finding direct segment in current path
+            $found = VariantRepository::find($currentPath, $seg);
+
+            // 2. If not found and more segments remain, try compound lookup (e.g. 'mpesa:register-c2b')
+            if (!$found && !empty($searchSegments)) {
+                $nextSeg = array_shift($searchSegments);
+                $compound = $seg . ':' . $nextSeg;
+                $found = VariantRepository::find($currentPath, $compound);
+                if ($found) {
+                    $matchedChain[] = $nextSeg;
+                } else {
+                    array_unshift($searchSegments, $nextSeg);
+                }
+            }
+
+            if (!$found) {
+                CLI::error("Variant [" . implode(' ', $matchedChain) . "] not found for command [{$this->name}].");
+                CLI::newLine();
+                $this->showAvailableVariants();
+                return;
+            }
+
+            $matchedVariant = $found;
+
+            // If found variant is a nested parent and more segments remain, descend deeper
+            if ($matchedVariant instanceof \Jengo\Base\Commands\Contracts\NestedCommandVariantInterface && !empty($searchSegments)) {
+                $currentPath = $matchedVariant->variantPath();
+            } else {
+                break;
+            }
+        }
+
+        if (!$matchedVariant) {
+            $this->showAvailableVariants();
+            return;
+        }
+
+        // If the resolved variant is a nested parent and no further sub-variant was requested, display its sub-variants
+        if ($matchedVariant instanceof \Jengo\Base\Commands\Contracts\NestedCommandVariantInterface) {
+            CLI::write("Usage:", 'yellow');
+            CLI::write("  {$this->name} " . implode(' ', $matchedChain) . " <sub-variant> [arguments] [options]");
+            CLI::newLine();
+
+            CLI::write("Description:", 'yellow');
+            CLI::write("  " . $matchedVariant::description());
+            CLI::newLine();
+
+            $childVariants = VariantRepository::all($matchedVariant->variantPath());
+            CLI::write("Available Sub-Variants:", 'yellow');
+
+            if (empty($childVariants)) {
+                CLI::write("  (No sub-variants found in path: {$matchedVariant->variantPath()})", 'dark_gray');
+                return;
+            }
+
+            $maxlen = 0;
+            foreach ($childVariants as $cv) {
+                $maxlen = max($maxlen, strlen($cv::name()));
+            }
+
+            foreach ($childVariants as $cv) {
+                CLI::write("  " . CLI::color(str_pad($cv::name(), $maxlen + 2), 'green') . $cv::description());
+
+                $args = $cv->arguments();
+                if (!empty($args)) {
+                    $maxArgLen = 0;
+                    foreach ($args as $name => $desc) {
+                        $maxArgLen = max($maxArgLen, strlen($name));
+                    }
+                    foreach ($args as $name => $desc) {
+                        CLI::write("    " . str_pad($name, $maxArgLen + 2) . CLI::color($desc, 'dark_gray'));
+                    }
+                }
+            }
+            return;
+        }
+
+        // Render leaf variant specific usage details
         CLI::write("Specific Usage:", 'yellow');
-        CLI::write("  {$this->name} {$variant} [arguments] [options]");
+        CLI::write("  {$this->name} " . implode(' ', $matchedChain) . " [arguments] [options]");
         CLI::newLine();
 
         CLI::write("Description:", 'yellow');
-        CLI::write("  " . $variantInstance::description());
+        CLI::write("  " . $matchedVariant::description());
         CLI::newLine();
 
-        $args = $variantInstance->arguments();
+        $args = $matchedVariant->arguments();
         if (!empty($args)) {
             CLI::write("Arguments:", 'yellow');
             $maxArgLen = 0;
@@ -145,7 +222,7 @@ abstract class AbstractMasterCommand extends BaseCommand
             CLI::newLine();
         }
 
-        $opts = $variantInstance->options();
+        $opts = $matchedVariant->options();
         if (!empty($opts)) {
             CLI::write("Options:", 'yellow');
             $maxOptLen = 0;

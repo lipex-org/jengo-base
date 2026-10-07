@@ -58,4 +58,27 @@ final class NestedVariantTest extends CommandTestCase
         $this->assertSame('parent-group', $parent::name());
         $this->assertSame('Parent group with nested variants', $parent::description());
     }
+
+    public function testShowHelpRendersForVariants(): void
+    {
+        $command = new class (service('logger'), service('commands')) extends AbstractMasterCommand {
+            protected $group = 'Test';
+            protected $name = 'test:master';
+            protected $description = 'Test master command.';
+            protected string $variantPath = 'Commands/Variants/Make';
+        };
+
+        // Root help
+        $command->showHelp([]);
+        $output = $this->io->getOutput();
+        $this->assertStringContainsString('Usage:', $output);
+        $this->assertStringContainsString('test:master <variant>', $output);
+
+        // Specific leaf variant help
+        $command->showHelp(['action']);
+        $leafOutput = $this->io->getOutput();
+        $this->assertStringContainsString('Specific Usage:', $leafOutput);
+        $this->assertStringContainsString('test:master action', $leafOutput);
+        $this->assertStringContainsString('Arguments:', $leafOutput);
+    }
 }
