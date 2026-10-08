@@ -1,8 +1,22 @@
-# Jengo Base
+<p align="center">
+  <a href="https://lipex-org.github.io/jengophp.com/">
+    <img src="https://raw.githubusercontent.com/lipex-org/docs/main/public/logo-full.png" width="220" alt="Jengo Logo">
+  </a>
+</p>
 
-The foundational package of the Jengo ecosystem, providing core CLI tooling, Blueprint UI layouts, helper libraries, and runtime architecture for CodeIgniter 4 applications.
+<h1 align="center">Jengo Base</h1>
 
-Documentation: https://lipex-org.github.io/jengophp.com/packages/base
+<p align="center">
+  <strong>The foundational core of the Jengo Framework providing dynamic command variants, package installers, ID obfuscation (Sqids), form handlers, response modifiers, and dependency injection.</strong>
+</p>
+
+<p align="center">
+  <a href="https://lipex-org.github.io/jengophp.com/packages/base"><strong>Documentation</strong></a> •
+  <a href="https://github.com/lipex-org/base/blob/main/LICENSE"><strong>License</strong></a> •
+  <a href="https://github.com/lipex-org/base/issues"><strong>Issues</strong></a>
+</p>
+
+---
 
 ## Installation
 
