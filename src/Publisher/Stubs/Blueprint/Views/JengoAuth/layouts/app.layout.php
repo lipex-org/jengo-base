@@ -28,15 +28,18 @@
 
                 <!-- Settings Dropdown / Auth Links -->
                 <div class="hidden sm:flex sm:items-center sm:ml-6">
-                    <?php if (auth()->loggedIn()): ?>
+                    <?php if (auth()->check()): ?>
                         <div class="flex items-center space-x-4">
-                            <span class="text-sm text-gray-700"><?= auth()->user()->username ?? 'User' ?></span>
-                            <a href="<?= url_to('logout') ?>" class="text-sm text-gray-500 hover:text-gray-700">Logout</a>
+                            <span class="text-sm text-gray-700"><?= esc(auth()->currentUser()->username ?? auth()->currentUser()->email ?? 'User') ?></span>
+                            <form action="<?= auth_url('logout') ?>" method="post" class="inline">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="text-sm text-gray-500 hover:text-gray-700 cursor-pointer">Logout</button>
+                            </form>
                         </div>
                     <?php else: ?>
                         <div class="flex items-center space-x-4">
-                            <a href="<?= url_to('login') ?>" class="text-sm text-gray-700 underline">Log in</a>
-                            <a href="<?= url_to('register') ?>" class="text-sm text-gray-700 underline">Register</a>
+                            <a href="<?= auth_url('login') ?>" class="text-sm text-gray-700 underline">Log in</a>
+                            <a href="<?= auth_url('register') ?>" class="text-sm text-gray-700 underline">Register</a>
                         </div>
                     <?php endif; ?>
                 </div>

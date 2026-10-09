@@ -8,11 +8,11 @@
 <?= $this->section('content') ?>
 <div class="relative sm:flex sm:justify-center sm:items-center min-h-screen bg-dots-darker bg-center bg-gray-100 selection:bg-primary selection:text-white">
     <div class="sm:fixed sm:top-0 sm:right-0 p-6 text-right z-10">
-        <?php if (auth()->loggedIn()): ?>
+        <?php if (auth()->check()): ?>
             <a href="<?= url_to('/dashboard') ?>" class="font-semibold text-gray-600 hover:text-gray-900 focus:outline-2 focus:rounded-sm focus:outline-primary">Dashboard</a>
         <?php else: ?>
-            <a href="<?= url_to('login') ?>" class="font-semibold text-gray-600 hover:text-gray-900 focus:outline-2 focus:rounded-sm focus:outline-primary">Log in</a>
-            <a href="<?= url_to('register') ?>" class="ml-4 font-semibold text-gray-600 hover:text-gray-900 focus:outline-2 focus:rounded-sm focus:outline-primary">Register</a>
+            <a href="<?= auth_url('login') ?>" class="font-semibold text-gray-600 hover:text-gray-900 focus:outline-2 focus:rounded-sm focus:outline-primary">Log in</a>
+            <a href="<?= auth_url('register') ?>" class="ml-4 font-semibold text-gray-600 hover:text-gray-900 focus:outline-2 focus:rounded-sm focus:outline-primary">Register</a>
         <?php endif; ?>
     </div>
 

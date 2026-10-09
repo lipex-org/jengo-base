@@ -43,7 +43,16 @@ class BlueprintInstaller extends AbstractInstaller
         // 3. Publish Controllers
         $this->publish($stubsDir . 'Controllers', 'app/Controllers');
 
-        // 4. Update Routes
+        // 4. Publish Brand Favicons & Logos
+        $brandDir = __DIR__ . '/../Publisher/Stubs/Brand/';
+        if (is_dir($brandDir . 'favicon')) {
+            $this->publish($brandDir . 'favicon', 'public');
+        }
+        if (is_dir($brandDir . 'images')) {
+            $this->publish($brandDir . 'images', 'public/images');
+        }
+
+        // 5. Update Routes
         $this->updateRoutes();
 
         // Remove the default welcome_message.php if it exists
