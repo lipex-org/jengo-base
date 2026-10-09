@@ -57,8 +57,36 @@ class JengoAuthSetup extends AbstractSetup
 
         $this->command('jengo:install', $args);
 
+        // 5. Ensure dashboard route uses 'auth:universal' filter
+        $this->updateDashboardRouteFilter();
+
         CLI::newLine();
         CLI::write('  ' . CLI::color('✔', 'green') . ' Jengo Auth suite configured successfully.');
         CLI::write('  ' . CLI::color('●', 'yellow') . ' Note: Run php spark migrate to set up Jengo Auth tables.');
+    }
+
+    protected function updateDashboardRouteFilter(): void
+    {
+        $routesFile = APPPATH . 'Config/Routes.php';
+        if (!file_exists($routesFile)) {
+            return;
+        }
+
+        $content = file_get_contents($routesFile);
+        if ($content === false) {
+            return;
+        }
+
+        // Replace any ['filter' => 'session'] for dashboard route with ['filter' => 'auth:universal']
+        $updated = preg_replace(
+            "/(\\\$routes->get\s*\(\s*['\"]dashboard['\"]\s*,\s*['\"][^'\"]+['\"]\s*,\s*\[\s*['\"]filter['\"]\s*=>\s*['\"])(session)(['\"]\s*\]\s*\);)/",
+            '$1auth:universal$3',
+            $content
+        );
+
+        if ($updated !== null && $updated !== $content) {
+            file_put_contents($routesFile, $updated);
+            CLI::write('  ' . CLI::color('●', 'cyan') . ' Updated dashboard route filter to [auth:universal].', 'dark_gray');
+        }
     }
 }

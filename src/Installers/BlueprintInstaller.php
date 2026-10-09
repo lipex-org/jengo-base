@@ -73,8 +73,19 @@ class BlueprintInstaller extends AbstractInstaller
 
         $content = file_get_contents($routesPath);
 
-        // Define Dashboard Route (with session filter)
-        $dashboardRoute = "\n// Jengo Dashboard Route\n\$routes->get('dashboard', 'Dashboard::index', ['filter' => 'session']);\n";
+        // Determine filter based on auth package installed
+        $filter = 'session';
+        $composerJsonPath = ROOTPATH . 'composer.json';
+        if (file_exists($composerJsonPath)) {
+            $composerJson = json_decode((string) file_get_contents($composerJsonPath), true);
+            $deps = array_merge($composerJson['require'] ?? [], $composerJson['require-dev'] ?? []);
+            if (isset($deps['jengo/auth'])) {
+                $filter = 'auth:universal';
+            }
+        }
+
+        // Define Dashboard Route with appropriate filter
+        $dashboardRoute = "\n// Jengo Dashboard Route\n\$routes->get('dashboard', 'Dashboard::index', ['filter' => '{$filter}']);\n";
 
         if (!str_contains($content, "get('dashboard'")) {
             $content .= $dashboardRoute;
