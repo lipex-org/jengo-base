@@ -48,6 +48,15 @@ class JengoAuthSetup extends AbstractSetup
             'Jengo\Auth\Helpers\auth',
         ]);
 
+        // 4. Run Jengo Auth Installer (publishes Config/Auth.php, Vima setup, and appends service('auth')->routes($routes) to Config/Routes.php)
+        $kit = CLI::getOption('kit') ?? CLI::getOption('framework');
+        $args = ['auth', '--yes'];
+        if ($kit) {
+            $args[] = "--kit={$kit}";
+        }
+
+        $this->command('jengo:install', $args);
+
         CLI::newLine();
         CLI::write('  ' . CLI::color('✔', 'green') . ' Jengo Auth suite configured successfully.');
         CLI::write('  ' . CLI::color('●', 'yellow') . ' Note: Run php spark migrate to set up Jengo Auth tables.');
