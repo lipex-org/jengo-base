@@ -6,6 +6,7 @@ namespace Jengo\Base\Container;
 
 use Closure;
 use Config\Services;
+use Jengo\Base\Container\Attributes\Service;
 use Jengo\Base\Container\Exceptions\ContainerException;
 use Jengo\Base\Container\Exceptions\NotFoundException;
 use Jengo\Base\Validation\ValidatedData;
@@ -14,6 +15,7 @@ use ReflectionFunction;
 use ReflectionFunctionAbstract;
 use ReflectionMethod;
 use ReflectionNamedType;
+use ReflectionParameter;
 use Throwable;
 
 class Container implements ContainerInterface
@@ -222,7 +224,10 @@ class Container implements ContainerInterface
             $method   = $defaultMethod ?? '__invoke';
             $callable = [$instance, $method];
         } elseif (is_array($callable) && isset($callable[0]) && is_string($callable[0])) {
-            $callable[0] = $this->make($callable[0]);
+            $isStaticMethod = is_callable($callable) && (new ReflectionMethod($callable[0], $callable[1]))->isStatic();
+            if (! $isStaticMethod) {
+                $callable[0] = $this->make($callable[0]);
+            }
         }
 
         if (! is_callable($callable)) {
@@ -310,7 +315,14 @@ class Container implements ContainerInterface
                 continue;
             }
 
-            // 2. Class / Interface typehint
+            // 2. #[Service] attribute resolution
+            $serviceInstance = $this->resolveServiceFromAttribute($parameter);
+            if ($serviceInstance !== null) {
+                $dependencies[] = $serviceInstance;
+                continue;
+            }
+
+            // 3. Class / Interface typehint
             $type = $parameter->getType();
 
             if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
@@ -331,19 +343,26 @@ class Container implements ContainerInterface
                 }
             }
 
-            // 3. Positional parameter fallback
+            // 4. Parameter name match with CI4 Services (e.g. $logger, $curlrequest, $queue)
+            $namedService = $this->resolveServiceByName($name);
+            if ($namedService !== null) {
+                $dependencies[] = $namedService;
+                continue;
+            }
+
+            // 5. Positional parameter fallback
             if (array_key_exists($unnamedParamIndex, $parameters)) {
                 $dependencies[] = $parameters[$unnamedParamIndex++];
                 continue;
             }
 
-            // 4. Default value
+            // 6. Default value
             if ($parameter->isDefaultValueAvailable()) {
                 $dependencies[] = $parameter->getDefaultValue();
                 continue;
             }
 
-            // 5. Nullable primitive
+            // 7. Nullable primitive
             if ($parameter->allowsNull()) {
                 $dependencies[] = null;
                 continue;
@@ -376,7 +395,14 @@ class Container implements ContainerInterface
                 continue;
             }
 
-            // 2. Typehinted class / interface / Form request
+            // 2. #[Service] attribute resolution
+            $serviceInstance = $this->resolveServiceFromAttribute($parameter);
+            if ($serviceInstance !== null) {
+                $dependencies[] = $serviceInstance;
+                continue;
+            }
+
+            // 3. Typehinted class / interface / Form request
             $type = $parameter->getType();
 
             if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
@@ -404,20 +430,27 @@ class Container implements ContainerInterface
                 }
             }
 
-            // 3. Positional route parameter match (sequential order for primitives)
+            // 4. Parameter name match with CI4 Services (e.g. $logger, $curlrequest, $queue)
+            $namedService = $this->resolveServiceByName($name);
+            if ($namedService !== null) {
+                $dependencies[] = $namedService;
+                continue;
+            }
+
+            // 5. Positional route parameter match (sequential order for primitives)
             if (array_key_exists($positionalIndex, $positionalParams)) {
                 $val = $positionalParams[$positionalIndex++];
                 $dependencies[] = $this->castPrimitiveValue($val, $type);
                 continue;
             }
 
-            // 4. Default value
+            // 6. Default value
             if ($parameter->isDefaultValueAvailable()) {
                 $dependencies[] = $parameter->getDefaultValue();
                 continue;
             }
 
-            // 5. Nullable parameter
+            // 7. Nullable parameter
             if ($parameter->allowsNull()) {
                 $dependencies[] = null;
                 continue;
@@ -428,6 +461,59 @@ class Container implements ContainerInterface
         }
 
         return $dependencies;
+    }
+
+    /**
+     * Resolve a parameter annotated with #[Service].
+     */
+    protected function resolveServiceFromAttribute(ReflectionParameter $parameter): mixed
+    {
+        $attributes = $parameter->getAttributes(Service::class);
+        if (empty($attributes)) {
+            return null;
+        }
+
+        /** @var Service $serviceAttr */
+        $serviceAttr = $attributes[0]->newInstance();
+        $serviceName = $serviceAttr->name;
+
+        // If no explicit service name is given, deduce from parameter name or typehint
+        if ($serviceName === null || $serviceName === '') {
+            $type = $parameter->getType();
+            if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
+                $serviceName = lcfirst(basename(str_replace('\\', '/', $type->getName())));
+            } else {
+                $serviceName = $parameter->getName();
+            }
+        }
+
+        return $this->resolveServiceByName($serviceName, $serviceAttr->getShared);
+    }
+
+    /**
+     * Resolve a service from CodeIgniter 4 Services locator by name.
+     */
+    protected function resolveServiceByName(string $name, bool $getShared = true): mixed
+    {
+        // 1. Try service() helper function if available
+        if (function_exists('service')) {
+            try {
+                return service($name, $getShared);
+            } catch (Throwable) {
+                // Ignore and try Config\Services directly
+            }
+        }
+
+        // 2. Try Config\Services::$name()
+        if (class_exists(Services::class) && method_exists(Services::class, $name)) {
+            try {
+                return Services::{$name}($getShared);
+            } catch (Throwable) {
+                // Ignore
+            }
+        }
+
+        return null;
     }
 
     /**

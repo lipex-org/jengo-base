@@ -6,6 +6,7 @@ namespace Tests\Unit;
 
 use CodeIgniter\CLI\BaseCommand;
 use CodeIgniter\Test\CIUnitTestCase;
+use Jengo\Base\Container\Attributes\Service;
 use Jengo\Base\Container\Container;
 use Jengo\Base\Container\ContainerInterface;
 use Jengo\Base\Container\Exceptions\ContainerException;
@@ -221,6 +222,28 @@ final class ContainerTest extends CIUnitTestCase
         $this->expectExceptionMessage('Circular dependency');
 
         $this->container->make(CircularA::class);
+    }
+
+    public function testResolvesServiceViaAttribute(): void
+    {
+        $resolvedLogger = null;
+        $this->container->call(function (#[Service('logger')] $logger, string $message) use (&$resolvedLogger) {
+            $resolvedLogger = $logger;
+        }, ['message' => 'hello']);
+
+        $this->assertNotNull($resolvedLogger);
+        $this->assertInstanceOf(\Psr\Log\LoggerInterface::class, $resolvedLogger);
+    }
+
+    public function testResolvesServiceByNameConvention(): void
+    {
+        $resolvedLogger = null;
+        $this->container->call(function ($logger, string $status) use (&$resolvedLogger) {
+            $resolvedLogger = $logger;
+        }, ['status' => 'ok']);
+
+        $this->assertNotNull($resolvedLogger);
+        $this->assertInstanceOf(\Psr\Log\LoggerInterface::class, $resolvedLogger);
     }
 }
 

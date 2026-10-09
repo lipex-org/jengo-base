@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use CodeIgniter\Events\Events;
 use CodeIgniter\HTTP\ResponseInterface;
+use Jengo\Base\Container\Container;
 use Jengo\Base\Facades\ModelFacade;
 use Jengo\Base\Exceptions\InterruptExecutionException;
 use Jengo\Base\Events\AbstractEvent;
@@ -678,7 +679,7 @@ if (!function_exists('app')) {
      */
     function app(?string $abstract = null, array $parameters = []): mixed
     {
-        $container = \Jengo\Base\Container\Container::getInstance();
+        $container = Container::getInstance();
 
         if ($abstract === null) {
             return $container;
@@ -694,7 +695,7 @@ if (!function_exists('resolve')) {
      */
     function resolve(string $abstract, array $parameters = []): mixed
     {
-        return \Jengo\Base\Container\Container::getInstance()->make($abstract, $parameters);
+        return Container::getInstance()->make($abstract, $parameters);
     }
 }
 
@@ -710,7 +711,7 @@ if (!function_exists('inject')) {
     function inject(callable|array|string $target): \Closure
     {
         return function (...$params) use ($target) {
-            return \Jengo\Base\Container\Container::getInstance()->call($target, $params);
+            return Container::getInstance()->call($target, $params);
         };
     }
 }
