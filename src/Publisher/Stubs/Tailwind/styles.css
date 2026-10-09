@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* remove if not using jengo/auth package */
+@source "../../vendor/jengo/auth/src/Views/";
+
 @plugin "daisyui" {
     themes: jengo --default, dark --prefersdark;
 }
