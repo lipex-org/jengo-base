@@ -13,9 +13,10 @@ use Config\App;
 use Config\Services;
 use Jengo\Base\Attributes\Validate;
 use Jengo\Base\Contracts\ResponseModifierInterface;
-use Jengo\Base\Modifiers\AutoDetectModifier;
-use Jengo\Base\Modifiers\JsonModifier;
-use Jengo\Base\Modifiers\StandardViewModifier;
+use Jengo\Base\Validation\Modifiers\UniversalModifier;
+use Jengo\Base\Validation\Modifiers\JsonModifier;
+use Jengo\Base\Validation\Modifiers\StandardViewModifier;
+use Jengo\Base\Validation\Modifiers\InertiaModifier;
 use Jengo\Base\Support\ResponseHandler;
 use Jengo\Base\Validation\FormHandler;
 
@@ -77,12 +78,12 @@ final class ResponseHandlerTest extends CIUnitTestCase
         return $request;
     }
 
-    public function testDefaultModifierIsAutoDetect(): void
+    public function testDefaultModifierIsUniversalModifier(): void
     {
         $handler = new ResponseHandler();
         $modifier = $handler->getModifier();
 
-        $this->assertInstanceOf(AutoDetectModifier::class, $modifier);
+        $this->assertInstanceOf(UniversalModifier::class, $modifier);
     }
 
     public function testSetModifierAtRuntime(): void
@@ -93,7 +94,7 @@ final class ResponseHandlerTest extends CIUnitTestCase
         $this->assertInstanceOf(JsonModifier::class, $handler->getModifier());
     }
 
-    public function testAutoDetectModifierReturnsJsonForAjaxOrJsonHeaders(): void
+    public function testUniversalModifierReturnsJsonForAjaxOrJsonHeaders(): void
     {
         $request = $this->createRequest(['Accept' => 'application/json']);
         $handler = new ResponseHandler();
@@ -138,6 +139,42 @@ final class ResponseHandlerTest extends CIUnitTestCase
         $body = json_decode($response->getBody(), true);
         $this->assertFalse($body['success']);
         $this->assertArrayHasKey('name', $body['api_errors']);
+    }
+
+    public function testInertiaModifierThrowsWhenJengoInertiaNotInstalled(): void
+    {
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The jengo/inertia package is required to use InertiaModifier.');
+
+        $request = $this->createRequest();
+        $modifier = new InertiaModifier();
+        $modifier->modifyValidationFailed(['email' => 'Invalid email'], $request);
+    }
+
+    public function testUniversalModifierDetectsInertiaHeaderAndDelegates(): void
+    {
+        $request = $this->createRequest(['X-Inertia' => 'true']);
+        $handler = new ResponseHandler();
+
+        // InertiaModifier will be selected and will throw because jengo/inertia is not in base's composer dependencies
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('The jengo/inertia package is required to use InertiaModifier.');
+
+        $handler->validationFailed(['name' => 'Required'], $request);
+    }
+
+    public function testConfigValidationResponseModifierRespected(): void
+    {
+        $config = config('Jengo');
+        $originalModifier = $config->validationResponseModifier;
+        $config->validationResponseModifier = CustomApiModifier::class;
+
+        $request = $this->createRequest();
+        $handler = new ResponseHandler();
+
+        $this->assertInstanceOf(CustomApiModifier::class, $handler->getModifier());
+
+        $config->validationResponseModifier = $originalModifier;
     }
 
     public function testRequestValidateThrowsInterruptExecutionException(): void

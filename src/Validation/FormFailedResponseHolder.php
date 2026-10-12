@@ -35,6 +35,8 @@ class FormFailedResponseHolder
 
     /**
      * Set the overridden response.
+     *
+     * @deprecated Use response modifiers via #[Validate(..., modifier: ...)], FormHandler::$modifier, or Config\Jengo::$validationResponseModifier instead.
      */
     public function setResponse(ResponseInterface $response): void
     {
@@ -43,6 +45,8 @@ class FormFailedResponseHolder
 
     /**
      * Get the overridden response, if any.
+     *
+     * @deprecated Use response modifiers instead of mutating holder response.
      */
     public function getResponse(): ?ResponseInterface
     {

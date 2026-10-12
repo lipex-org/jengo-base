@@ -116,14 +116,33 @@
       "properties": {
         "rules": "array of validation rules (e.g. ['email' => 'required|valid_email'])",
         "messages": "array of custom validation error messages",
+        "modifier": "?string class-string of ResponseModifierInterface to override response modifier for this form",
         "obfuscatedFields": "array of fields to automatically deobfuscate using Sqids unhashing prior to running validation",
         "routeParams": "map of input keys to route parameter indices (e.g. ['id' => 0]) to fetch and deobfuscate parameters from matched route URLs"
       },
       "methods": {
         "validate": "validate(?RequestInterface $request = null): bool (clears validation cache and runs validation)",
         "validated": "validated(): ValidatedData (returns the ValidatedData DTO containing categorized validation results)",
-        "getErrors": "getErrors(): array (returns validation errors)"
+        "getErrors": "getErrors(): array (returns validation errors)",
+        "setModifier": "setModifier(string|ResponseModifierInterface $modifier): self (sets per-form modifier)",
+        "getModifier": "getModifier(): ?string (returns configured modifier class)"
       }
+    },
+    {
+      "class": "Jengo\\Base\\Validation\\Modifiers\\UniversalModifier",
+      "description": "Default validation response modifier. Auto-detects client type (X-Inertia header -> InertiaModifier, JSON/AJAX -> JsonModifier, browser -> StandardViewModifier)."
+    },
+    {
+      "class": "Jengo\\Base\\Validation\\Modifiers\\InertiaModifier",
+      "description": "Inertia.js validation failure modifier. Flashes errors to session and redirects back. Throws RuntimeException if jengo/inertia package is not installed."
+    },
+    {
+      "class": "Jengo\\Base\\Validation\\Modifiers\\JsonModifier",
+      "description": "JSON 422 validation failure modifier for APIs and AJAX requests."
+    },
+    {
+      "class": "Jengo\\Base\\Validation\\Modifiers\\StandardViewModifier",
+      "description": "Standard server-rendered view validation modifier. Redirects back with input and errors flashed to session."
     },
     {
       "class": "Jengo\\Base\\Validation\\ValidatedData",
@@ -139,24 +158,24 @@
     },
     {
       "class": "Jengo\\Base\\Validation\\FormFailedResponseHolder",
-      "description": "Transport object passed to the jengo.form.failed event, allowing listeners to override the validation failure response.",
+      "description": "Transport object passed to the jengo.form.failed event for telemetry/logging (setResponse is deprecated in favor of modifiers).",
       "methods": {
         "getErrors": "getErrors(): array (returns the validation errors)",
         "getRequest": "getRequest(): RequestInterface (returns the request)",
-        "setResponse": "setResponse(ResponseInterface $response): void (overrides the failed response)",
-        "getResponse": "getResponse(): ?ResponseInterface (returns the overridden response if set)"
+        "setResponse": "setResponse(ResponseInterface $response): void (@deprecated use ResponseModifierInterface)",
+        "getResponse": "getResponse(): ?ResponseInterface (@deprecated)"
       }
     },
     {
       "attribute": "Jengo\\Base\\Attributes\\Validate",
-      "description": "Controller class or method Attribute targeting pre-dispatch validation handling using a FormHandler.",
-      "usage": "#[Validate(StoreUserForm::class)]\npublic function store() { $data = form()->validated(); }"
+      "description": "Controller class or method Attribute targeting pre-dispatch validation handling using a FormHandler. Supports per-request response modifier override.",
+      "usage": "#[Validate(StoreUserForm::class, modifier: JsonModifier::class)]\npublic function store() { $data = form()->validated(); }"
     }
   ],
   "events": [
     {
       "name": "jengo.form.failed",
-      "description": "Triggered when a FormHandler validation fails. Receives a FormFailedResponseHolder to let other adapters like Inertia JS influence the response."
+      "description": "Triggered when a FormHandler validation fails. Receives a FormFailedResponseHolder for telemetry and audit logging."
     },
     {
       "class": "Jengo\\Base\\Events\\AbstractEvent",

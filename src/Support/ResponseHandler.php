@@ -8,7 +8,6 @@ use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;
 use Config\Services;
 use Jengo\Base\Contracts\ResponseModifierInterface;
-use Jengo\Base\Modifiers\AutoDetectModifier;
 
 class ResponseHandler
 {
@@ -34,13 +33,17 @@ class ResponseHandler
             return $this->modifier;
         }
 
-        $configModifier = config('App')->responseModifier ?? config('Jengo')->responseModifier ?? AutoDetectModifier::class;
+        $configModifier = config('Jengo')->validationResponseModifier
+            ?? config('Jengo')->responseModifier
+            ?? config('App')->validationResponseModifier
+            ?? config('App')->responseModifier
+            ?? \Jengo\Base\Validation\Modifiers\UniversalModifier::class;
 
         if (class_exists($configModifier)) {
             return $this->modifier = new $configModifier();
         }
 
-        return $this->modifier = new AutoDetectModifier();
+        return $this->modifier = new \Jengo\Base\Validation\Modifiers\UniversalModifier();
     }
 
     /**

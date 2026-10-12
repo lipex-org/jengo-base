@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Jengo\Base\Modifiers;
+namespace Jengo\Base\Validation\Modifiers;
 
 use CodeIgniter\HTTP\RequestInterface;
 use CodeIgniter\HTTP\ResponseInterface;

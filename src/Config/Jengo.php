@@ -12,6 +12,14 @@ use Jengo\Base\Installers\ViteInstaller;
 class Jengo extends BaseConfig
 {
     /**
+     * Global response modifier class for validation failures.
+     * Precedence: per-request (#[Validate(..., modifier: ...)]) > per-form (FormHandler::$modifier) > this global config.
+     *
+     * @var class-string<\Jengo\Base\Contracts\ResponseModifierInterface>|null
+     */
+    public ?string $validationResponseModifier = \Jengo\Base\Validation\Modifiers\UniversalModifier::class;
+
+    /**
      * List of installer class names.
      *
      * @var class-string<\Jengo\Base\Installers\Contracts\InstallerInterface>[]

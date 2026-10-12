@@ -72,7 +72,6 @@ class Validate implements RouteAttributeInterface
                 $ref = new \ReflectionClass($router);
                 if ($ref->hasProperty('params')) {
                     $prop = $ref->getProperty('params');
-                    $prop->setAccessible(true);
                     $prop->setValue($router, $params);
                 }
             }
