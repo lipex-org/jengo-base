@@ -7,7 +7,10 @@ namespace Jengo\Base\Tooling\Modifier;
 use PhpParser\Comment;
 use PhpParser\Comment\Doc;
 use PhpParser\Node;
+use PhpParser\Node\Arg;
 use PhpParser\Node\ArrayItem;
+use PhpParser\Node\Attribute;
+use PhpParser\Node\AttributeGroup;
 use PhpParser\Node\Expr;
 use PhpParser\Node\Expr\Array_;
 use PhpParser\Node\Expr\ClassConstFetch;
@@ -249,11 +252,121 @@ class ClassModifier
         return $this;
     }
 
+    public function hasTrait(string $traitName): bool
+    {
+        $traitName = ltrim($traitName, '\\');
+        $shortName = substr($traitName, strrpos($traitName, '\\') !== false ? strrpos($traitName, '\\') + 1 : 0);
+
+        /** @var TraitUse[] $traitUses */
+        $traitUses = $this->finder->findInstanceOf($this->targetClass->stmts, TraitUse::class);
+        foreach ($traitUses as $traitUse) {
+            foreach ($traitUse->traits as $trait) {
+                $name = $trait->toString();
+                if ($name === $traitName || $name === $shortName) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     public function addTrait(string $traitName): self
     {
         $traitName = ltrim($traitName, '\\');
-        $useStmt = new TraitUse([new FullyQualified($traitName)]);
+        if ($this->hasTrait($traitName)) {
+            return $this;
+        }
+
+        $parts = explode('\\', $traitName);
+        $shortName = end($parts);
+
+        // Check if top-level use statement exists for this trait
+        $useShort = false;
+        $existingUses = $this->finder->findInstanceOf($this->ast, UseUse::class);
+        foreach ($existingUses as $use) {
+            if ($use->name->toString() === $traitName) {
+                $useShort = true;
+                break;
+            }
+        }
+
+        $nameNode = $useShort ? new Name($shortName) : new FullyQualified($traitName);
+        $useStmt = new TraitUse([$nameNode]);
         array_unshift($this->targetClass->stmts, $useStmt);
+        return $this;
+    }
+
+    public function hasAttribute(string $attributeClass): bool
+    {
+        $attributeClass = ltrim($attributeClass, '\\');
+        $shortName = substr($attributeClass, strrpos($attributeClass, '\\') !== false ? strrpos($attributeClass, '\\') + 1 : 0);
+
+        foreach ($this->targetClass->attrGroups as $attrGroup) {
+            foreach ($attrGroup->attrs as $attr) {
+                $name = $attr->name->toString();
+                if ($name === $attributeClass || $name === $shortName) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    public function addAttribute(string $attributeClass, array $args = []): self
+    {
+        $attributeClass = ltrim($attributeClass, '\\');
+        if ($this->hasAttribute($attributeClass)) {
+            return $this;
+        }
+
+        $argNodes = [];
+        foreach ($args as $name => $val) {
+            $valNode = $this->convertValueToNode($val);
+            $argNodes[] = is_string($name) ? new Arg($valNode, name: new Identifier($name)) : new Arg($valNode);
+        }
+
+        $parts = explode('\\', $attributeClass);
+        $shortName = end($parts);
+
+        // Check if top-level use statement exists for this attribute
+        $useShort = false;
+        $existingUses = $this->finder->findInstanceOf($this->ast, UseUse::class);
+        foreach ($existingUses as $use) {
+            if ($use->name->toString() === $attributeClass) {
+                $useShort = true;
+                break;
+            }
+        }
+
+        $nameNode = $useShort ? new Name($shortName) : new FullyQualified($attributeClass);
+
+        $attr = new Attribute($nameNode, $argNodes);
+        $this->targetClass->attrGroups[] = new AttributeGroup([$attr]);
+
+        return $this;
+    }de
+
+    public function removeAttribute(string $attributeClass): self
+    {
+        $attributeClass = ltrim($attributeClass, '\\');
+        $shortName = substr($attributeClass, strrpos($attributeClass, '\\') !== false ? strrpos($attributeClass, '\\') + 1 : 0);
+
+        foreach ($this->targetClass->attrGroups as $gIndex => $attrGroup) {
+            foreach ($attrGroup->attrs as $aIndex => $attr) {
+                $name = $attr->name->toString();
+                if ($name === $attributeClass || $name === $shortName) {
+                    unset($attrGroup->attrs[$aIndex]);
+                }
+            }
+            $attrGroup->attrs = array_values($attrGroup->attrs);
+            if (empty($attrGroup->attrs)) {
+                unset($this->targetClass->attrGroups[$gIndex]);
+            }
+        }
+        $this->targetClass->attrGroups = array_values($this->targetClass->attrGroups);
+
         return $this;
     }
 
@@ -509,10 +622,24 @@ class ClassModifier
      */
     private function createClassConstFetchNode(string $className): ClassConstFetch
     {
-        if (str_starts_with($className, '\\')) {
-            $nameNode = new FullyQualified(ltrim($className, '\\'));
-        } elseif (str_contains($className, '\\')) {
-            $nameNode = new FullyQualified($className);
+        $cleanClass = ltrim($className, '\\');
+        $parts = explode('\\', $cleanClass);
+        $shortName = end($parts);
+
+        // Check if top-level use statement exists for this class
+        $useShort = false;
+        $existingUses = $this->finder->findInstanceOf($this->ast, UseUse::class);
+        foreach ($existingUses as $use) {
+            if ($use->name->toString() === $cleanClass) {
+                $useShort = true;
+                break;
+            }
+        }
+
+        if ($useShort) {
+            $nameNode = new Name($shortName);
+        } elseif (str_starts_with($className, '\\') || str_contains($className, '\\')) {
+            $nameNode = new FullyQualified($cleanClass);
         } else {
             $nameNode = new Name($className);
         }

@@ -171,5 +171,52 @@ PHP;
         $this->assertStringNotContainsString('auth::class', $rendered);
         $this->assertStringNotContainsString('setting::class', $rendered);
     }
+
+    public function testAddAttributeAndTraitWithUseStatements(): void
+    {
+        $code = <<<'PHP'
+<?php
+
+namespace App\Models;
+
+use CodeIgniter\Model;
+
+class UserModel extends Model
+{
+    protected $table = 'users';
 }
+PHP;
+
+        $modifier = ClassModifier::fromString($code);
+        $this->assertFalse($modifier->hasAttribute('Jengo\Schema\Attributes\UseSchema'));
+        $this->assertFalse($modifier->hasTrait('Jengo\Schema\Traits\HasSchema'));
+
+        $modifier->addUseStatement('Jengo\Schema\Attributes\UseSchema');
+        $modifier->addUseStatement('Jengo\Schema\Traits\HasSchema');
+        $modifier->addUseStatement('App\Schemas\UserSchema');
+
+        $modifier->addAttribute('Jengo\Schema\Attributes\UseSchema', ['App\Schemas\UserSchema']);
+        $modifier->addTrait('Jengo\Schema\Traits\HasSchema');
+
+        // Calling again should not duplicate
+        $modifier->addAttribute('Jengo\Schema\Attributes\UseSchema', ['App\Schemas\UserSchema']);
+        $modifier->addTrait('Jengo\Schema\Traits\HasSchema');
+
+        $this->assertTrue($modifier->hasAttribute('Jengo\Schema\Attributes\UseSchema'));
+        $this->assertTrue($modifier->hasAttribute('UseSchema'));
+        $this->assertTrue($modifier->hasTrait('Jengo\Schema\Traits\HasSchema'));
+        $this->assertTrue($modifier->hasTrait('HasSchema'));
+
+        $rendered = $modifier->render();
+
+        $this->assertStringContainsString('use Jengo\Schema\Attributes\UseSchema;', $rendered);
+        $this->assertStringContainsString('use Jengo\Schema\Traits\HasSchema;', $rendered);
+        $this->assertStringContainsString('use App\Schemas\UserSchema;', $rendered);
+        $this->assertStringContainsString('#[UseSchema(UserSchema::class)]', $rendered);
+        $this->assertStringContainsString('use HasSchema;', $rendered);
+        $this->assertSame(1, substr_count($rendered, '#[UseSchema(UserSchema::class)]'));
+        $this->assertSame(1, substr_count($rendered, 'use HasSchema;'));
+    }
+}
+
 
