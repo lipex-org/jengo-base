@@ -10,6 +10,30 @@ use Jengo\Base\Exceptions\InterruptExecutionException;
 use Jengo\Base\Events\AbstractEvent;
 use Jengo\Base\Validation\FormHandler;
 
+if (!defined('RESOURCEPATH')) {
+    define(
+        'RESOURCEPATH',
+        (defined('ROOTPATH') ? rtrim(ROOTPATH, '\\/') : getcwd()) . DIRECTORY_SEPARATOR . 'resources' . DIRECTORY_SEPARATOR
+    );
+}
+
+if (!function_exists('resource_path')) {
+    /**
+     * Returns the path to the resources directory or a specific file/subfolder within it.
+     *
+     * @param string|null $path
+     * @return string
+     */
+    function resource_path(?string $path = ''): string
+    {
+        $base = defined('RESOURCEPATH')
+            ? rtrim(RESOURCEPATH, '\\/')
+            : (defined('ROOTPATH') ? rtrim(ROOTPATH, '\\/') . DIRECTORY_SEPARATOR . 'resources' : getcwd() . DIRECTORY_SEPARATOR . 'resources');
+
+        return empty($path) ? $base : $base . DIRECTORY_SEPARATOR . ltrim($path, '\\/');
+    }
+}
+
 if (!function_exists('model_of')) {
     /**
      * Returns the model facade instance of the model provided

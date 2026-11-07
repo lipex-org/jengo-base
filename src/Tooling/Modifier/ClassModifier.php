@@ -346,7 +346,7 @@ class ClassModifier
         $this->targetClass->attrGroups[] = new AttributeGroup([$attr]);
 
         return $this;
-    }de
+    }
 
     public function removeAttribute(string $attributeClass): self
     {

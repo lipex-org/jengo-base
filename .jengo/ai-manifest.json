@@ -390,6 +390,17 @@
       "name": "sqids_unhash",
       "signature": "sqids_unhash(?string $hash): ?int",
       "description": "Decodes a Sqids hash back to an integer ID, returning null if the input is null/empty or invalid."
+    },
+    {
+      "name": "resource_path",
+      "signature": "resource_path(?string $path = ''): string",
+      "description": "Returns the absolute path to the application's resources directory or a specific file/subfolder within it."
+    }
+  ],
+  "constants": [
+    {
+      "name": "RESOURCEPATH",
+      "description": "Absolute path to the resources directory with a trailing directory separator (e.g. ROOTPATH . 'resources/')."
     }
   ],
   "commands": [

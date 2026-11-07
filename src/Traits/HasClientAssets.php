@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace Jengo\Base\Traits;
 
+use Jengo\Base\Libraries\PackageManager;
+
 trait HasClientAssets
 {
     /**
@@ -12,12 +14,11 @@ trait HasClientAssets
     protected function ensureClientDirectory(): void
     {
         $paths = [
-            'resources/js',
-            'resources/css',
+            resource_path('js'),
+            resource_path('css'),
         ];
 
-        foreach ($paths as $path) {
-            $fullPath = ROOTPATH . $path;
+        foreach ($paths as $fullPath) {
             if (!is_dir($fullPath)) {
                 mkdir($fullPath, 0777, true);
             }
@@ -31,9 +32,7 @@ trait HasClientAssets
      */
     protected function ensureNodeModulesIgnored(?string $path = null): void
     {
-        if (class_exists(\Jengo\Base\Libraries\PackageManager::class)) {
-            \Jengo\Base\Libraries\PackageManager::ensureGitignore($path);
-        }
+        PackageManager::ensureGitignore($path);
     }
 
     /**
@@ -43,7 +42,7 @@ trait HasClientAssets
     {
         $this->ensureClientDirectory();
 
-        $path = ROOTPATH . 'resources/js/' . ltrim($filename, '/');
+        $path = resource_path('js/' . ltrim($filename, '/'));
         $this->ensureDirectory(dirname($path));
 
         $this->writeFile($path, $content);
@@ -56,7 +55,7 @@ trait HasClientAssets
     {
         $this->ensureClientDirectory();
 
-        $path = ROOTPATH . 'resources/css/' . ltrim($filename, '/');
+        $path = resource_path('css/' . ltrim($filename, '/'));
         $this->ensureDirectory(dirname($path));
 
         $this->writeFile($path, $content);
